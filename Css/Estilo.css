@@ -164,11 +164,54 @@ body {
     height: auto;          /* ¡IMPORTANTE! Mantiene la proporción para que no se deforme */
     border-radius: 8px;    /* Opcional: Le da un toque estético con bordes redondeados */
 }
-
 /*Estilos del pie de página*/
 footer{
     background-color: #112248;
     color: white;
     text-align: center;
     padding: 20px;
+}
+
+/* DISEÑO RESPONSIVO PARA MÓVILES (Pantallas de menos de 768px)*/
+@media (max-width: 768px) {
+    
+    /* 1. Ajustes para el Encabezado */
+    .encabezado {
+        padding: 20px 10px; /* Reduce el espacio interno en móviles */
+        text-align: center;
+    }
+    
+    .encabezado h1 {
+        font-size: 1.8rem;  /* Reduce un poco el tamaño del título principal para que no se corte */
+    }
+
+    /* 2. Ajustes para el Menú de Navegación */
+    nav ul {
+        display: flex;
+        flex-direction: column; /* Cambia los enlaces de horizontal a vertical */
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    }
+
+    nav li {
+        width: 100%;
+        margin: 5px 0; /* Añade una pequeña separación entre botones */
+        text-align: center;
+    }
+
+    nav a {
+        display: block;
+        padding: 12px 0; /* Hace que el área de clic sea más grande y cómoda para el dedo */
+        background-color: #0056b3; /* Un color de fondo para que parezcan botones individuales */
+        color: white !important;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background-color 0.2s;
+    }
+
+    nav a:hover, nav a:active {
+        background-color: #003d80; /* Color más oscuro cuando lo presionen en el teléfono */
+    }
 }
