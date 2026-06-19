@@ -1,102 +1,147 @@
-
 /* Estilos generales para el sitio web */
-/*fondo del encabezado*/
-.encabezado{
-    background-image: url('../Multimedia/Imagenes/Fondo_encabezado.png');
-    padding: 200px;
-    background-size: cover;
-    background-position: center;
-}
-
-/*Opciones de navegación forma horizontal*/
-nav ul{
-    display: flex;
-    justify-content: center;
-    list-style: none;
+* {
+    box-sizing: border-box;
+    margin: 0;
     padding: 0;
 }
 
-/*Crear recuadro del menú de navegación*/
-nav ul li a{
+/*fondo del encabezado*/
+.encabezado {
+    background-image: url('../Multimedia/Imagenes/Fondo_encabezado.png');
+    padding: 10% 20px;
+    /* Usa porcentajes para que reduzca su tamaño de forma proporcional en celular */
+    background-size: cover;
+    background-position: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/*Opciones de navegación forma horizontal*/
+/* Opciones de navegación con soporte multi-línea */
+nav ul {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    /* ¡CLAVE! Si no caben en la pantalla, bajan ordenadamente */
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+nav ul li {
+    margin: 8px;
+    /* Reducimos ligeramente el margen para optimizar espacio */
+}
+
+/* Crear recuadro del menú de navegación */
+nav ul li a {
     text-decoration: none;
     color: white;
     background-color: #2563eb;
-    padding: 12px 25px;
+    padding: 10px 20px;
+    /* Un tamaño más equilibrado */
     border-radius: 10px;
     display: block;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.2s;
 }
-nav ul li{
-    margin: 10px;
-}
-/*Interaccion de los incones del menú*/
-nav ul li a:hover{
+
+nav ul li a:hover {
     background-color: #1d4ed8;
     transform: scale(1.05);
 }
-/*Color del los iconos del menú*/
-nav{
+
+nav {
     background-color: #0f172a;
-    padding: 15px;
+    padding: 10px;
 }
+
 /*Estilos del contenedor del video*/
 .contenedor_video {
     text-align: center;
     margin-top: 20px;
-    max-width: 700px; /* Limita el tamaño máximo para que no se vea gigante en PC */
+    max-width: 700px;
+    /* Limita el tamaño máximo para que no se vea gigante en PC */
     margin-left: auto;
     margin-right: auto;
 }
-.contenedor_video video, 
+
+.contenedor_video video,
 .contenedor_video iframe {
     width: 100%;
-    border-radius: 8px; /* Le da bordes redondeados estéticos */
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.1); /* Una sombra suave */
+    border-radius: 8px;
+    /* Le da bordes redondeados estéticos */
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    /* Una sombra suave */
 }
 
 /* ESTILOS GENERALES DE TIPOGRAFÍA (Afecta a todo el documento)*/
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Tipografía limpia y moderna */
-    line-height: 1.6; /* Espaciado entre líneas para que sea cómodo de leer */
-    color: #333333; /* Color de texto principal (gris oscuro en lugar de negro puro) */
-    background-color: #f9f9f9; /* Fondo ligeramente gris para resaltar el texto */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Tipografía limpia y moderna */
+    line-height: 1.6;
+    /* Espaciado entre líneas para que sea cómodo de leer */
+    color: #333333;
+    /* Color de texto principal (gris oscuro en lugar de negro puro) */
+    background-color: #f9f9f9;
+    /* Fondo ligeramente gris para resaltar el texto */
 }
 
 /* ESTILOS PARA LAS SECCIONES DE TEXTO (Inicio, Conócenos, Servicios, Contacto) */
 
 /* Contenedor general de cada sección */
 .seccion-contenido {
-    max-width: 900px;         /* Limita el ancho para que las líneas no sean eternas */
-    margin: 40px auto;        /* Centra la sección en la pantalla y añade espacio arriba/abajo */
+    width: 90%;
+    max-width: 900px;
+    /* Limita el ancho para que las líneas no sean eternas */
+    margin: 40px auto;
+    /* Centra la sección en la pantalla y añade espacio arriba/abajo */
     padding: 20px;
-    background-color: #ffffff; /* Fondo blanco para crear un efecto de "tarjeta" */
-    border-radius: 8px;       /* Bordes redondeados suaves */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); /* Sombra sutil de fondo */
+    background-color: #ffffff;
+    /* Fondo blanco para crear un efecto de "tarjeta" */
+    border-radius: 8px;
+    /* Bordes redondeados suaves */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    /* Sombra sutil de fondo */
 }
 
 /* Estilo para los títulos principales (H2) de cada sección */
 .titulo-seccion {
-    font-size: 2rem;          /* Tamaño grande y visible */
-    color: #0056b3;           /* Un tono azul corporativo/tecnológico */
-    margin-bottom: 15px;      /* Espacio debajo del título */
-    border-bottom: 2px solid #0056b3; /* Línea decorativa debajo del título */
+    font-size: 2rem;
+    /* Tamaño grande y visible */
+    color: #0056b3;
+    /* Un tono azul corporativo/tecnológico */
+    margin-bottom: 15px;
+    /* Espacio debajo del título */
+    border-bottom: 2px solid #0056b3;
+    /* Línea decorativa debajo del título */
     padding-bottom: 8px;
-    text-transform: uppercase; /* Opcional: Convierte el título a mayúsculas */
-    letter-spacing: 1px;      /* Espaciado ligero entre letras */
+    text-transform: uppercase;
+    /* Opcional: Convierte el título a mayúsculas */
+    letter-spacing: 1px;
+    /* Espaciado ligero entre letras */
 }
 
 /* Estilo para los párrafos de texto */
 .seccion-contenido p {
-    font-size: 1.1rem;        /* Tamaño de lectura ideal */
-    color: #555555;           /* Color gris medio, suave para la vista */
-    margin-bottom: 15px;      /* Espacio entre párrafos */
-    text-align: justify;      /* Justifica el texto para un acabado más formal */
+    font-size: 1.1rem;
+    /* Tamaño de lectura ideal */
+    color: #555555;
+    /* Color gris medio, suave para la vista */
+    margin-bottom: 15px;
+    /* Espacio entre párrafos */
+    text-align: justify;
+    /* Justifica el texto para un acabado más formal */
 }
 
 /* Clase opcional para un párrafo de bienvenida o introducción más llamativo */
 .texto-destacado {
-    font-size: 1.2rem !important; /* Un poco más grande que el texto común */
-    font-weight: 500;             /* Ligeramente más gruesa */
-    color: #222222 !important;    /* Más oscuro para resaltar */
+    font-size: 1.2rem !important;
+    /* Un poco más grande que el texto común */
+    font-weight: 500;
+    /* Ligeramente más gruesa */
+    color: #222222 !important;
+    /* Más oscuro para resaltar */
 }
 
 /* ESTILOS PARA LA SECCIÓN DE CONTACTO (WhatsApp y Mapa)*/
@@ -112,28 +157,35 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background-color: #25D366; /* Verde oficial de WhatsApp */
-    color: #ffffff !important;   /* Texto blanco */
-    text-decoration: none;      /* Quita el subrayado del enlace */
+    background-color: #25D366;
+    /* Verde oficial de WhatsApp */
+    color: #ffffff !important;
+    /* Texto blanco */
+    text-decoration: none;
+    /* Quita el subrayado del enlace */
     font-weight: bold;
     font-size: 1.1rem;
     padding: 12px 25px;
-    border-radius: 50px;        /* Botón completamente ovalado */
+    border-radius: 50px;
+    /* Botón completamente ovalado */
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 /* Efecto al pasar el mouse por encima */
 .btn-whatsapp:hover {
-    background-color: #128C7E; /* Verde más oscuro */
-    transform: scale(1.03);    /* Crece un poquito de tamaño */
+    background-color: #128C7E;
+    /* Verde más oscuro */
+    transform: scale(1.03);
+    /* Crece un poquito de tamaño */
 }
 
 /* Tamaño del logo de WhatsApp */
 .logo-wa {
     width: 28px;
     height: 28px;
-    margin-right: 12px;        /* Espacio entre el logo y el texto */
+    margin-right: 12px;
+    /* Espacio entre el logo y el texto */
 }
 
 /* Estilos para el bloque del Mapa */
@@ -151,67 +203,76 @@ body {
 .contenedor-mapa iframe {
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
+
 /*Clase para agrandar la imagen de servicios sin perder calidad*/
 .imagen-servicio {
-    display: block;        /* Permite centrar la imagen fácilmente */
-    margin: 20px auto;     /* Añade espacio arriba/abajo y la centra horizontalmente */
-    
-   
-   max-width: 100%; /* Método B: Ocupa el 90% del ancho disponible en la pantalla */
-    
-    height: auto;          /* ¡IMPORTANTE! Mantiene la proporción para que no se deforme */
-    border-radius: 8px;    /* Opcional: Le da un toque estético con bordes redondeados */
+    display: block;
+    /* Permite centrar la imagen fácilmente */
+    margin: 20px auto;
+    /* Añade espacio arriba/abajo y la centra horizontalmente */
+
+
+    max-width: 100%;
+    /* Método B: Ocupa el 90% del ancho disponible en la pantalla */
+
+    height: auto;
+    /* ¡IMPORTANTE! Mantiene la proporción para que no se deforme */
+    border-radius: 8px;
+    /* Opcional: Le da un toque estético con bordes redondeados */
 }
+
 /*Estilos del pie de página*/
-footer{
+footer {
     background-color: #112248;
     color: white;
     text-align: center;
     padding: 20px;
 }
 
+/* DISEÑO EXCLUSIVO PARA TABLETS */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .encabezado {
+        padding: 100px 20px; 
+    }
+    nav ul li a {
+        padding: 10px 15px; 
+        font-size: 0.95rem; 
+    }
+}
+
 /* DISEÑO RESPONSIVO PARA MÓVILES (Pantallas de menos de 768px)*/
 @media (max-width: 768px) {
-    
-    /* 1. Ajustes para el Encabezado */
+
     .encabezado {
-        padding: 20px 10px; /* Reduce el espacio interno en móviles */
-        text-align: center;
-    }
-    
-    .encabezado h1 {
-        font-size: 1.8rem;  /* Reduce un poco el tamaño del título principal para que no se corte */
+        padding: 60px 10px;
+        /* Reducción drástica del tamaño del banner en celulares */
     }
 
-    /* 2. Ajustes para el Menú de Navegación */
     nav ul {
-        display: flex;
-        flex-direction: column; /* Cambia los enlaces de horizontal a vertical */
-        padding: 0;
-        margin: 0;
-        width: 100%;
+        flex-direction: column;
+        /* Alineación vertical impecable para móviles */
+        align-items: center;
     }
 
-    nav li {
+    nav ul li {
         width: 100%;
-        margin: 5px 0; /* Añade una pequeña separación entre botones */
+        /* Los botones ocupan el ancho disponible */
+        max-width: 280px;
+        /* Pero con un límite elegante para que no se estiren de más */
+        margin: 6px 0;
+    }
+
+    nav ul li a {
         text-align: center;
+        padding: 12px;
+        /* Espacio ideal para pulsar con pantallas táctiles */
     }
 
-    nav a {
-        display: block;
-        padding: 12px 0; /* Hace que el área de clic sea más grande y cómoda para el dedo */
-        background-color: #0056b3; /* Un color de fondo para que parezcan botones individuales */
-        color: white !important;
-        border-radius: 5px;
-        text-decoration: none;
-        font-weight: bold;
-        transition: background-color 0.2s;
-    }
-
-    nav a:hover, nav a:active {
-        background-color: #003d80; /* Color más oscuro cuando lo presionen en el teléfono */
+    /* Evitamos que el mapa de Google se desborde en pantallas angostas */
+    .contenedor-mapa iframe {
+        width: 100% !important;
+        height: 300px;
     }
 }
