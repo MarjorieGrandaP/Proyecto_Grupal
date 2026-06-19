@@ -246,8 +246,9 @@ footer {
 @media (max-width: 768px) {
 
     .encabezado {
-        padding: 60px 10px;
-        /* Reducción drástica del tamaño del banner en celulares */
+       padding: 120px 10px;
+        /* Reducción del tamaño del banner en celulares */
+        background-position: center center;
     }
 
     nav ul {
