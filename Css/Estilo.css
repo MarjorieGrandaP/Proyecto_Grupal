@@ -218,56 +218,40 @@ footer {
 }
 
 /* Diseño de pantallas*/
-
-
 /* 1. PANTALLAS GRANDES Y TELEVISORES (Smart TVs / 4K) */
-/* En pantallas gigantes (Televisores / Monitores 4K) */
-/* PANTALLAS MEDIANAS Y GRANDES (Laptops, PCs de escritorio, TVs) */
-@media (min-width: 769px) {
-    .banner-pc {
-        display: block !important;
+@media (min-width: 1400px) {
+    .seccion-contenido {
+        max-width: 1200px; /* El contenido no se ve estirado en pantallas gigantes */
+        padding: 40px;
     }
-    .banner-movil {
-        display: none !important;
+    .encabezado {
+        min-height: 50vh; /* El banner se ve imponente en pantallas grandes */
     }
-    nav ul {
-        flex-direction: row !important; /* Fuerza al menú a mantenerse horizontal en laptops */
-        justify-content: center;
-    }
-    nav ul li {
-        width: auto !important; /* Evita que los botones se estiren a lo ancho en PC */
+    body {
+        font-size: 18px; /* Escalamos un poco la letra para pantallas lejanas (TV) */
     }
 }
 
-/* PANTALLAS DE TABLETS (Intermedio) */
-@media (min-width: 577px) and (max-width: 768px) {
-    .banner-pc {
-        display: block !important; /* Las tablets grandes aún pueden mostrar el banner */
+/* 2. TABLETS */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .encabezado {
+        min-height: 30vh;
     }
-    .banner-movil {
-        display: none !important;
-    }
-    nav ul {
-        flex-direction: row !important; /* Mantiene el menú horizontal en tablets */
-        justify-content: center;
-    }
-    nav ul li {
-        width: auto !important;
+    nav ul li a {
+        padding: 10px 15px; 
+        font-size: 0.95rem; 
     }
 }
 
-/* EN CELULARES (Pantallas de 576px o menos) */
-@media (max-width: 576px) {
-    .banner-pc {
-        display: none !important; /* Oculta la imagen en celulares */
-    }
-
-    .banner-movil {
-        display: block !important; /* Muestra el degradado y el H1 en celulares */
+/* 3. CELULARES */
+@media (max-width: 768px) {
+    .encabezado {
+        min-height: 25vh; /* Altura más cómoda para móviles */
+        background-size: cover; 
     }
 
     nav ul {
-        flex-direction: column !important; /* Rompe el menú a vertical SOLO en celulares */
+        flex-direction: column; 
         align-items: center;
     }
 
@@ -283,7 +267,7 @@ footer {
     }
 
     .seccion-contenido p {
-        text-align: left;
+        text-align: left; /* En celular el texto justificado suele dejar espacios raros */
     }
 
     .contenedor-mapa iframe {
