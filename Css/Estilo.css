@@ -15,15 +15,46 @@ body {
 
 /* fondo del encabezado corregido */
 .encabezado {
-    background-image: url('../Multimedia/Imagenes/Fondo_encabezado.png');
-    background-repeat: no-repeat;
-    background-position: center center;
-    background-size: cover; /* Cambiar a 'contain' si URGE ver el 100% de la imagen sin importar los bordes vacíos */
     width: 100%;
-    min-height: 40vh; /* Se adapta al 40% de la altura de la pantalla del dispositivo */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* CONFIGURACIÓN PARA PANTALLAS GRANDES (Computadoras / TV) */
+.banner-pc {
+    background-image: url('../Multimedia/Imagenes/Fondo_encabezado.png');
+    width: 100%;
+    /* Ajusta estos números al ancho/alto real de tu imagen (ej. 1920/650) */
+    aspect-ratio: 1920 / 650; 
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: block; /* Se muestra por defecto en PC */
+}
+
+/* El banner de celular se mantiene oculto en pantallas grandes */
+.banner-movil {
+    display: none; 
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
+    color: white;
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.banner-movil h1 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.banner-movil p {
+    font-size: 1rem;
+    color: #93c5fd; /* Azul claro sutil */
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 /* Opciones de navegación */
@@ -184,35 +215,30 @@ footer {
 
 
 /* 1. PANTALLAS GRANDES Y TELEVISORES (Smart TVs / 4K) */
+/* En pantallas gigantes (Televisores / Monitores 4K) */
 @media (min-width: 1400px) {
     .seccion-contenido {
-        max-width: 1200px; /* El contenido no se ve estirado en pantallas gigantes */
+        max-width: 1200px;
         padding: 40px;
-    }
-    .encabezado {
-        min-height: 50vh; /* El banner se ve imponente en pantallas grandes */
-    }
-    body {
-        font-size: 18px; /* Escalamos un poco la letra para pantallas lejanas (TV) */
     }
 }
 
-/* 2. TABLETS */
+/* En tabletas */
 @media (min-width: 769px) and (max-width: 1024px) {
-    .encabezado {
-        min-height: 30vh;
-    }
     nav ul li a {
         padding: 10px 15px; 
         font-size: 0.95rem; 
     }
 }
 
-/* 3. CELULARES */
+/* EN CELULARES (¡Aquí hacemos el cambio de diseño!) */
 @media (max-width: 768px) {
-    .encabezado {
-        min-height: 25vh; /* Altura más cómoda para móviles */
-        background-size: cover; 
+    .banner-pc {
+        display: none; /* Ocultamos la imagen pesada en celulares */
+    }
+
+    .banner-movil {
+        display: block; /* Mostramos el encabezado con texto y degradado */
     }
 
     nav ul {
@@ -232,7 +258,7 @@ footer {
     }
 
     .seccion-contenido p {
-        text-align: left; /* En celular el texto justificado suele dejar espacios raros */
+        text-align: left;
     }
 
     .contenedor-mapa iframe {
