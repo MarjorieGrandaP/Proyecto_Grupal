@@ -26,16 +26,17 @@ body {
     background-image: url('../Multimedia/Imagenes/Fondo_encabezado.png');
     width: 100%;
     /* Ajusta estos números al ancho/alto real de tu imagen (ej. 1920/650) */
-    aspect-ratio: 1920 / 650; 
+    aspect-ratio: 1920 / 650;
     background-size: 100% 100%;
     background-position: center;
     background-repeat: no-repeat;
-    display: block; /* Se muestra por defecto en PC */
+    display: block;
+    /* Se muestra por defecto en PC */
 }
 
 /* El banner de celular se mantiene oculto en pantallas grandes */
 .banner-movil {
-    display: none; 
+    display: none;
     background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #2563eb 100%);
     color: white;
     text-align: center;
@@ -52,7 +53,8 @@ body {
 
 .banner-movil p {
     font-size: 1rem;
-    color: #93c5fd; /* Azul claro sutil */
+    color: #93c5fd;
+    /* Azul claro sutil */
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -70,7 +72,8 @@ nav ul {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-width: 1200px; /* Evita que el menú se estire infinitamente en TV */
+    max-width: 1200px;
+    /* Evita que el menú se estire infinitamente en TV */
     margin-left: auto;
     margin-right: auto;
 }
@@ -102,14 +105,16 @@ nav ul li a:hover {
     max-width: 700px;
     margin-left: auto;
     margin-right: auto;
-    width: 90%; /* Asegura adaptabilidad en pantallas chicas */
+    width: 90%;
+    /* Asegura adaptabilidad en pantallas chicas */
 }
 
 .contenedor_video video,
 .contenedor_video iframe {
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9; /* Mantiene la proporción del video */
+    aspect-ratio: 16 / 9;
+    /* Mantiene la proporción del video */
     border-radius: 8px;
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
 }
@@ -117,7 +122,8 @@ nav ul li a:hover {
 /* ESTILOS PARA LAS SECCIONES DE TEXTO */
 .seccion-contenido {
     width: 90%;
-    max-width: 1000px; /* Un poco más amplio para pantallas grandes */
+    max-width: 1000px;
+    /* Un poco más amplio para pantallas grandes */
     margin: 40px auto;
     padding: 25px;
     background-color: #ffffff;
@@ -216,33 +222,52 @@ footer {
 
 /* 1. PANTALLAS GRANDES Y TELEVISORES (Smart TVs / 4K) */
 /* En pantallas gigantes (Televisores / Monitores 4K) */
-@media (min-width: 1400px) {
-    .seccion-contenido {
-        max-width: 1200px;
-        padding: 40px;
-    }
-}
-
-/* En tabletas */
-@media (min-width: 769px) and (max-width: 1024px) {
-    nav ul li a {
-        padding: 10px 15px; 
-        font-size: 0.95rem; 
-    }
-}
-
-/* EN CELULARES (¡Aquí hacemos el cambio de diseño!) */
-@media (max-width: 768px) {
+/* PANTALLAS MEDIANAS Y GRANDES (Laptops, PCs de escritorio, TVs) */
+@media (min-width: 769px) {
     .banner-pc {
-        display: none; /* Ocultamos la imagen pesada en celulares */
+        display: block !important;
+    }
+    .banner-movil {
+        display: none !important;
+    }
+    nav ul {
+        flex-direction: row !important; /* Fuerza al menú a mantenerse horizontal en laptops */
+        justify-content: center;
+    }
+    nav ul li {
+        width: auto !important; /* Evita que los botones se estiren a lo ancho en PC */
+    }
+}
+
+/* PANTALLAS DE TABLETS (Intermedio) */
+@media (min-width: 577px) and (max-width: 768px) {
+    .banner-pc {
+        display: block !important; /* Las tablets grandes aún pueden mostrar el banner */
+    }
+    .banner-movil {
+        display: none !important;
+    }
+    nav ul {
+        flex-direction: row !important; /* Mantiene el menú horizontal en tablets */
+        justify-content: center;
+    }
+    nav ul li {
+        width: auto !important;
+    }
+}
+
+/* EN CELULARES (Pantallas de 576px o menos) */
+@media (max-width: 576px) {
+    .banner-pc {
+        display: none !important; /* Oculta la imagen en celulares */
     }
 
     .banner-movil {
-        display: block; /* Mostramos el encabezado con texto y degradado */
+        display: block !important; /* Muestra el degradado y el H1 en celulares */
     }
 
     nav ul {
-        flex-direction: column; 
+        flex-direction: column !important; /* Rompe el menú a vertical SOLO en celulares */
         align-items: center;
     }
 
