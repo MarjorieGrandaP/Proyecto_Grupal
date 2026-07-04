@@ -177,4 +177,4 @@ document.addEventListener("DOMContentLoaded", function () {
         contadorTotal.textContent = totalRegistros;
     }
 });
-// actualización
+
