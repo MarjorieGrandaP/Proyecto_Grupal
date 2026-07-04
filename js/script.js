@@ -13,33 +13,99 @@ document.addEventListener("DOMContentLoaded", function () {
     // Variable para mantener el conteo total de registros
     let totalRegistros = 0;
 
-    // 1. Capture el evento submit del formulario usando JavaScript
-    // 2. Utilice addEventListener() para manejar los eventos
+    // --- 1. FUNCIONES DE VALIDACIÓN DINÁMICA ---
+
+    // Valida la longitud mínima del nombre (mínimo 5 caracteres)
+    function validarNombre() {
+        const valor = inputNombre.value.trim();
+        if (valor.length >= 5) {
+            inputNombre.classList.remove("is-invalid");
+            inputNombre.classList.add("is-valid");
+            return true;
+        } else {
+            inputNombre.classList.remove("is-valid");
+            inputNombre.classList.add("is-invalid");
+            return false;
+        }
+    }
+
+    // Valida que se haya seleccionado una categoría
+    function validarTipo() {
+        if (inputTipo.value !== "") {
+            inputTipo.classList.remove("is-invalid");
+            inputTipo.classList.add("is-valid");
+            return true;
+        } else {
+            inputTipo.classList.remove("is-valid");
+            inputTipo.classList.add("is-invalid");
+            return false;
+        }
+    }
+
+    // Valida que la descripción tenga información suficiente (mínimo 10 caracteres)
+    function validarDescripcion() {
+        const valor = inputDescripcion.value.trim();
+        if (valor.length >= 10) {
+            inputDescripcion.classList.remove("is-invalid");
+            inputDescripcion.classList.add("is-valid");
+            return true;
+        } else {
+            inputDescripcion.classList.remove("is-valid");
+            inputDescripcion.classList.add("is-invalid");
+            return false;
+        }
+    }
+
+    // --- 2. EVENTOS EN TIEMPO REAL (input, change, blur) ---
+    // Se activan mientras el usuario escribe o interactúa con los campos
+
+    inputNombre.addEventListener("input", validarNombre);
+    inputNombre.addEventListener("blur", validarNombre);
+
+    inputTipo.addEventListener("change", validarTipo); 
+    inputTipo.addEventListener("blur", validarTipo);
+
+    inputDescripcion.addEventListener("input", validarDescripcion);
+    inputDescripcion.addEventListener("blur", validarDescripcion);
+
+
+    // --- 3. MANEJO DEL EVENTO SUBMIT ---
     formulario.addEventListener("submit", function (evento) {
         
-        // 3. Utilice preventDefault() para evitar que la página se recargue
+        // Utilice preventDefault() para evitar que la página se recargue
         evento.preventDefault();
 
-        // Obtener los valores y quitar espacios en blanco al inicio y final
-        const nombre = inputNombre.value.trim();
-        const tipo = inputTipo.value;
-        const descripcion = inputDescripcion.value.trim();
+        // Ejecutar todas las validaciones al momento de enviar
+        const esNombreValido = validarNombre();
+        const esTipoValido = validarTipo();
+        const esDescValida = validarDescripcion();
 
-        // 4. Valide que los campos del formulario no estén vacíos
-        if (nombre === "" || tipo === "" || descripcion === "") {
-            // 5. Muestre mensajes dinámicos de validación al usuario (Error)
-            mostrarMensaje("Por favor, complete todos los campos antes de registrar.", "danger");
-            return; // Detiene la ejecución si hay un error
+        // Permite registrar información únicamente cuando todas las validaciones sean correctas
+        if (esNombreValido && esTipoValido && esDescValida) {
+            
+            // Extraer valores finales
+            const nombre = inputNombre.value.trim();
+            const tipo = inputTipo.value;
+            const descripcion = inputDescripcion.value.trim();
+
+            // Agregar el registro al DOM
+            agregarRegistroDOM(nombre, tipo, descripcion);
+
+            // Muestre mensajes dinámicos de éxito
+            mostrarMensaje("¡Equipo registrado con éxito!", "success");
+
+            // Limpiar el formulario para un nuevo ingreso
+            formulario.reset();
+
+            // Quitar las clases visuales de validación para resetear el estado visual
+            inputNombre.classList.remove("is-valid");
+            inputTipo.classList.remove("is-valid");
+            inputDescripcion.classList.remove("is-valid");
+
+        } else {
+            // Muestre mensajes dinámicos de error
+            mostrarMensaje("Por favor, verifica los campos marcados en rojo antes de continuar.", "danger");
         }
-
-        // Si la validación pasa, agregamos el registro
-        agregarRegistroDOM(nombre, tipo, descripcion);
-
-        // Muestre mensajes dinámicos de validación al usuario (Éxito)
-        mostrarMensaje("¡Equipo registrado con éxito!", "success");
-
-        // Limpiar el formulario para un nuevo ingreso
-        formulario.reset();
     });
 
     // Función para mostrar alertas dinámicas de Bootstrap
@@ -56,15 +122,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 3000);
     }
 
-    // Función principal para crear y mostrar registros en pantalla
+    // Función principal para crear y mostrar registros en pantalla (Mantenida intacta)
     function agregarRegistroDOM(nombre, tipo, descripcion) {
         
-        // 6. Utilice createElement() para crear elementos HTML desde JavaScript
         const columna = document.createElement("div");
-        // 7. Aplique clases de Bootstrap a los elementos creados dinámicamente
         columna.className = "col-md-6 col-lg-4";
 
-        // Creación de la tarjeta (Card) de Bootstrap
         const tarjeta = document.createElement("div");
         tarjeta.className = "card h-100 shadow-sm border-info";
 
@@ -83,21 +146,17 @@ document.addEventListener("DOMContentLoaded", function () {
         textoDescriptivo.className = "card-text mt-3";
         textoDescriptivo.textContent = descripcion;
 
-        // Botón para eliminar
         const botonEliminar = document.createElement("button");
         botonEliminar.className = "btn btn-danger btn-sm w-100 mt-2";
         botonEliminar.textContent = "Eliminar Registro";
 
-        // 8. Permita eliminar registros mediante un botón y el evento click
+        // Eliminar registro
         botonEliminar.addEventListener("click", function () {
-            // Elimina la columna entera (tarjeta) del DOM
             columna.remove();
-            // Actualiza el contador restando 1
             actualizarContador(-1);
         });
 
-        // 9. Utilice appendChild() para agregar los nuevos elementos a la página
-        // Armamos la estructura de la tarjeta desde adentro hacia afuera
+        // Ensamblar la tarjeta
         cuerpoTarjeta.appendChild(titulo);
         cuerpoTarjeta.appendChild(subtitulo);
         cuerpoTarjeta.appendChild(textoDescriptivo);
@@ -106,14 +165,13 @@ document.addEventListener("DOMContentLoaded", function () {
         tarjeta.appendChild(cuerpoTarjeta);
         columna.appendChild(tarjeta);
 
-        // Agregamos la tarjeta final al contenedor principal en el HTML
         listaEquipos.appendChild(columna);
 
-        // Aumentamos el contador al agregar uno nuevo
+        // Aumentar contador
         actualizarContador(1);
     }
 
-    // 10. Muestre en pantalla el total de registros creados
+    // Actualizar el contador en pantalla
     function actualizarContador(cambio) {
         totalRegistros += cambio;
         contadorTotal.textContent = totalRegistros;

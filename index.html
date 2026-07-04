@@ -52,10 +52,12 @@
             <p class="text-muted">Evita filas y agiliza tu atención. Ingresa los datos de tu equipo a continuación para generar una orden de servicio prioritaria en nuestro sistema.</p>
             
             <!-- Formulario de registro con validación HTML5 (required) -->
-            <form id="formulario-equipo" class="mb-4 bg-light p-4 rounded border">
+            <form id="formulario-equipo" class="mb-4 bg-light p-4 rounded border" novalidate>
                 <div class="mb-3">
                     <label for="nombreCliente" class="form-label fw-bold">Tu Nombre y Modelo del Equipo</label>
                     <input type="text" id="nombreCliente" class="form-control" placeholder="Ej. Juan Pérez - Laptop HP Pavilion" required>
+                    <div class="valid-feedback">¡Se ve bien!</div>
+                    <div class="invalid-feedback">Por favor, ingresa al menos 5 caracteres.</div>
                 </div>
                 
                 <div class="mb-3">
@@ -66,11 +68,15 @@
                         <option value="Mantenimiento Correctivo">Mantenimiento Correctivo</option>
                         <option value="Instalación de Software">Instalación de Software</option>
                     </select>
+                    <div class="valid-feedback">¡Categoría seleccionada!</div>
+                    <div class="invalid-feedback">Debes seleccionar un tipo de asistencia.</div>
                 </div>
                 
                 <div class="mb-3">
                     <label for="descripcionProblema" class="form-label fw-bold">Cuéntanos sobre el problema</label>
                     <textarea id="descripcionProblema" class="form-control" rows="3" placeholder="Describe la falla aquí..." required></textarea>
+                    <div class="valid-feedback">¡Descripción adecuada!</div>
+                    <div class="invalid-feedback">Tu descripción debe tener al menos 10 caracteres para poder ayudarte mejor.</div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary w-100 fw-bold py-2">Generar Orden de Servicio</button>
