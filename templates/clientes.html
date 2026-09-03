@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Clientes{% endblock %}
+
+{% block content %}
+
+<section id="clientes" class="seccion-contenido">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="titulo-seccion mb-0">Módulo de Clientes</h2>
+        <div>
+            <a href="{{ url_for('nuevo_cliente') }}" class="btn btn-success me-2">Registrar Cliente</a>
+            <span class="badge bg-primary fs-6 px-3 py-2">Total: {{ clientes|length }}</span>
+        </div>
+    </div>
+    <p class="text-muted mb-4">Registro demostrativo de los clientes que confían en nuestros servicios técnicos.</p>
+
+    <div class="table-responsive shadow-sm rounded border">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Cliente</th>
+                    <th scope="col">Teléfono</th>
+                    <th scope="col">Equipo</th>
+                    <th scope="col">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td class="fw-bold">{{ cliente.nombre }}</td>
+                    <td>{{ cliente.telefono }}</td>
+                    <td>{{ cliente.equipo }}</td>
+                    <td>
+                        {% if cliente.estado == "Entregado" %}
+                        <span class="badge bg-success">{{ cliente.estado }}</span>
+                        {% elif cliente.estado == "En revisión" or cliente.estado == "En reparación" %}
+                        <span class="badge bg-warning text-dark">{{ cliente.estado }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ cliente.estado }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}

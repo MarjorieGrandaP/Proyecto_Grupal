@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Conócenos{% endblock %}
+
+{% block content %}
+
+<section id="conocenos" class="seccion-contenido">
+    <h2 class="titulo-seccion text-center mb-4">Quiénes Somos</h2>
+
+    <div class="row align-items-center gap-4">
+        <div class="col-lg">
+            <article>
+                <p class="fs-5 text-secondary text-justify mb-3">
+                    En <strong>PC-Fix</strong>, somos un equipo de especialistas apasionados por la tecnología y dedicados exclusivamente al mantenimiento preventivo y correctivo de equipos informáticos.
+                </p>
+                <p class="text-muted text-justify mb-3">
+                    Comprendemos que, en la era digital actual, una computadora lenta o averiada puede detener por completo tu productividad, ya sea en tu hogar, en tus estudios o en tu empresa. Por ello, nuestra misión principal es brindar un servicio técnico rápido, transparente y de la más alta calidad para prolongar la vida útil de tus dispositivos.
+                </p>
+                <p class="text-muted text-justify">
+                    Realizamos desde limpiezas profundas de hardware y optimización exhaustiva de software, hasta la reparación de componentes dañados y la recuperación de datos vitales. Nos enorgullece profundamente ofrecer diagnósticos honestos y soluciones a medida, asegurando que cada cliente reciba exactamente lo que necesita para que sus equipos funcionen al máximo rendimiento.
+                </p>
+            </article>
+        </div>
+        <div class="col-lg-5 text-center">
+            <img src="{{ url_for('static', filename='img/conocenos.png') }}" alt="Equipo de especialistas de PC-Fix en el área de trabajo" class="img-fluid rounded shadow-sm border-bottom border-warning border-4">
+        </div>
+    </div>
+
+    <div class="row mt-5 pt-4 border-top">
+        <div class="col-12 text-center mb-5">
+            <div class="section-title-template">
+                <h1>Nuestro Equipo Profesional</h1>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="team-thumb">
+                <img src="{{ url_for('static', filename='img/Joao.jpg') }}" class="img-fluid" alt="Johao Caicedo">
+                <div class="team-info team-thumb-up">
+                    <h2>Johao Caicedo</h2>
+                    <small>Especialista de Soporte</small>
+                    <p>Apasionado por la optimización de sistemas y la resolución eficiente de problemas de hardware complejos.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="team-thumb">
+                <div class="team-info team-thumb-down">
+                    <h2>Cristhian Chacha</h2>
+                    <small>Especialista de Hardware</small>
+                    <p>Experto en reparaciones a nivel de componentes electrónicos, microsoldadura y diagnósticos precisos.</p>
+                </div>
+                <img src="{{ url_for('static', filename='img/Cris.jpg') }}" class="img-fluid" alt="Cristhian Chacha">
+            </div>
+        </div>
+
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="team-thumb">
+                <img src="{{ url_for('static', filename='img/Marjo.jpeg') }}" class="img-fluid" alt="Marjorie Granda">
+                <div class="team-info team-thumb-up">
+                    <h2>Marjorie Granda</h2>
+                    <small>Administradora de Servicios</small>
+                    <p>Encargada de la gestión de calidad, atención al cliente y optimización de tiempos de entrega en el taller.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

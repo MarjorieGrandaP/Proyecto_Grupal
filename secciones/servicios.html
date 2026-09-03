@@ -3,78 +3,353 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>PC-Fix - Servicios Técnicos</title>
-    <link rel="icon" type="image/png" href="../recursos/images/favicon.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../css/styles.css">
+
+    <link
+        rel="icon"
+        type="image/png"
+        href="../static/img/favicon.png"
+    >
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../static/css/styles.css"
+    >
 </head>
 
 <body>
 
-    <header class="encabezado bg-dark">
-        <img src="../recursos/images/encabezado.png" alt="Banner principal de PC-Fix" class="img-fluid w-100">
+    <header class="encabezado bg-dark text-white text-center">
+        <h1 class="nombre-plataforma m-0 py-2">
+            PC-FIX
+        </h1>
+
+        <img
+            src="../static/img/encabezado.png"
+            alt="Servicio de soporte y reparación de equipos informáticos"
+            class="img-fluid w-100"
+        >
     </header>
 
-    <nav>
-        <ul>
-            <li><a href="../index.html">Inicio</a></li>
-            <li><a href="conocenos.html">Conócenos</a></li>
-            <li><a href="servicios.html" class="nav-activo">Servicios</a></li>
-            <li><a href="contacto.html">Contacto</a></li>
-        </ul>
+    <nav
+        class="navbar navbar-expand-lg navbar-dark"
+        style="background-color: #0f172a;"
+    >
+        <div class="container-fluid">
+
+            <!-- Botón hamburguesa para celulares -->
+            <button
+                class="navbar-toggler mx-auto mb-2"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#menuPrincipal"
+                aria-controls="menuPrincipal"
+                aria-expanded="false"
+                aria-label="Mostrar menú de navegación"
+            >
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div
+                class="collapse navbar-collapse justify-content-center"
+                id="menuPrincipal"
+            >
+                <ul class="navbar-nav gap-3 align-items-center">
+
+                    <li class="nav-item">
+                        <a
+                            href="../index.html"
+                            class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;"
+                        >
+                            Inicio
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a
+                            href="conocenos.html"
+                            class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;"
+                        >
+                            Conócenos
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a
+                            href="servicios.html"
+                            class="nav-link btn nav-btn active"
+                            style="background-color: #d4af37; color: #112248; font-weight: bold;"
+                        >
+                            Servicios
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a
+                            href="contacto.html"
+                            class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;"
+                        >
+                            Contacto
+                        </a>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <button
+                            class="nav-link btn nav-btn text-white dropdown-toggle"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            style="background-color: #2563eb;"
+                        >
+                            Módulos
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    href="clientes.html"
+                                >
+                                    Clientes
+                                </a>
+                            </li>
+
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    href="proveedores.html"
+                                >
+                                    Proveedores
+                                </a>
+                            </li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    href="facturacion.html"
+                                >
+                                    Facturación
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
     </nav>
 
     <main class="container my-5">
+
         <section id="servicios" class="seccion-contenido">
-            <h2 class="titulo-seccion text-center">Nuestros Servicios</h2>
-            <p class="texto-destacado text-center mb-5">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
+
+            <h2 class="titulo-seccion text-center">
+                Nuestros Servicios
+            </h2>
+
+            <p class="texto-destacado text-center mb-5">
+                Ofrecemos una amplia gama de soluciones técnicas con los
+                más altos estándares de calidad para mantener tus equipos
+                en perfectas condiciones.
+            </p>
 
             <div class="contenedor-servicios">
-                
+
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img src="../recursos/images/servicio-1.jpg" alt="Técnico limpiando el interior de una PC" class="img-tarjeta">
+                    <img
+                        src="../static/img/servicio-1.jpg"
+                        alt="Técnico realizando mantenimiento preventivo"
+                        class="img-tarjeta"
+                    >
+
                     <div class="contenido-tarjeta">
                         <h3>Mantenimiento Preventivo</h3>
-                        <p>Limpieza interna profunda, cambio de pasta térmica de alta calidad y revisión exhaustiva de componentes para evitar sobrecalentamientos.</p>
+
+                        <p>
+                            Limpieza interna profunda, cambio de pasta
+                            térmica de alta calidad y revisión exhaustiva
+                            de componentes.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> 1 hora
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $25.00
+                        </p>
                     </div>
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img src="../recursos/images/servicio-2.jpg" alt="Reparación de placa base con herramientas" class="img-tarjeta">
+                    <img
+                        src="../static/img/servicio-2.jpg"
+                        alt="Técnico realizando mantenimiento correctivo"
+                        class="img-tarjeta"
+                    >
+
                     <div class="contenido-tarjeta">
                         <h3>Mantenimiento Correctivo</h3>
-                        <p>Diagnóstico preciso, reparación a nivel de placa y reemplazo de hardware dañado (discos duros, memoria RAM, pantallas y baterías).</p>
+
+                        <p>
+                            Diagnóstico preciso, reparación a nivel de
+                            placa y reemplazo de hardware dañado.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> 2 horas
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $40.00
+                        </p>
                     </div>
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img src="../recursos/images/servicio-3.jpg" alt="Pantalla de computadora mostrando un escaneo de antivirus" class="img-tarjeta">
+                    <img
+                        src="../static/img/servicio-3.jpg"
+                        alt="Optimización y limpieza de computadora"
+                        class="img-tarjeta"
+                    >
+
                     <div class="contenido-tarjeta">
                         <h3>Optimización y Limpieza</h3>
-                        <p>Aceleramos el rendimiento de tu sistema operativo y eliminamos virus, malware o cualquier amenaza que comprometa tu privacidad.</p>
+
+                        <p>
+                            Aceleramos el rendimiento de tu sistema
+                            operativo y eliminamos virus o malware.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> 45 minutos
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $20.00
+                        </p>
                     </div>
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img src="../recursos/images/servicio-4.jpg" alt="Instalación de sistema operativo Windows" class="img-tarjeta">
+                    <img
+                        src="../static/img/servicio-4.jpg"
+                        alt="Instalación de software en una computadora"
+                        class="img-tarjeta"
+                    >
+
                     <div class="contenido-tarjeta">
                         <h3>Instalación de Software</h3>
-                        <p>Instalación desde cero y actualización de sistemas operativos (Windows) y programas esenciales para un funcionamiento seguro y eficiente.</p>
+
+                        <p>
+                            Instalación desde cero y actualización de
+                            sistemas operativos y programas esenciales.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> 30 minutos
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $15.00
+                        </p>
+                    </div>
+                </div>
+
+                <div class="tarjeta-servicio" tabindex="0">
+                    <img
+                        src="../static/img/servicio-4.jpg"
+                        alt="Formateo e instalación de Windows"
+                        class="img-tarjeta"
+                    >
+
+                    <div class="contenido-tarjeta">
+                        <h3>Formateo e Instalación de Windows</h3>
+
+                        <p>
+                            Formateo seguro del disco, instalación de
+                            Windows y configuración de controladores.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> 1.5 horas
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $30.00
+                        </p>
+                    </div>
+                </div>
+
+                <div class="tarjeta-servicio" tabindex="0">
+                    <img
+                        src="../static/img/servicio-1.jpg"
+                        alt="Recuperación de datos de un equipo informático"
+                        class="img-tarjeta"
+                    >
+
+                    <div class="contenido-tarjeta">
+                        <h3>Recuperación de Datos</h3>
+
+                        <p>
+                            Recuperación de información vital desde
+                            discos dañados, USB o tarjetas de memoria.
+                        </p>
+
+                        <p class="mb-1">
+                            <strong>Duración:</strong> Variable
+                        </p>
+
+                        <p class="mb-0">
+                            <strong>Precio:</strong> $60.00
+                        </p>
                     </div>
                 </div>
 
             </div>
         </section>
+
     </main>
 
-    <footer class="footer mt-auto">
-        <p>Desarrollado por: Johao Caicedo, Cristhian Chacha, Marjorie Granda</p>
-        <p>Asignatura: Desarrollo de Aplicaciones Web</p>
-        <p>2026</p>
+    <footer class="footer bg-dark text-white text-center p-3">
+        <p class="mb-1">
+            Desarrollado por: Johao Caicedo, Cristhian Chacha y
+            Marjorie Granda
+        </p>
+
+        <p class="mb-1">
+            Asignatura: Desarrollo de Aplicaciones Web
+        </p>
+
+        <p class="mb-0">
+            2026
+        </p>
     </footer>
 
-    <script src="../js/script.js"></script>
-</body>
+    <!-- Bootstrap: necesario para el menú adaptable -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+    ></script>
 
+    <script src="../static/js/script.js"></script>
+
+</body>
 </html>

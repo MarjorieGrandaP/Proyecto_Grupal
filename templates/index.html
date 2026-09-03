@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+<!--Cambio de nombre por variable -->
+{% block title %}{{ nombre_empresa }} - Soluciones Informáticas{% endblock %}
+
+{% block content %}
+
+<section id="inicio" class="seccion-contenido py-4">
+    <div class="row">
+        <div class="col-md-6 col-sm-12">
+            <div class="about-info-template">
+                <h2 class="mb-3">Bienvenidos a <span class="text-nowrap"><i class="fa fa-laptop"></i> {{ nombre_empresa
+                        }}</span></h2>
+                <div class="about-text-block mb-4">
+                    <p class="lead text-secondary">En <strong>{{ nombre_empresa }}</strong>, somos tu aliado confiable
+                        para el rendimiento óptimo de tu computadora.</p>
+                    <p class="text-muted">Nos dedicamos a mantener tus equipos informáticos en perfectas condiciones
+                        mediante servicios especializados y garantizados, asegurando soluciones rápidas y transparentes
+                        para potenciar tu productividad.</p>
+                </div>
+                <figure class="profile-template d-flex align-items-top mt-4 efecto-flotar">
+                    <img src="{{ url_for('static', filename='img/Joao.jpg') }}" class="img-fluid rounded-circle me-3"
+                        alt="Director Técnico" style="width: 65px; height: 65px; object-fit: cover;">
+                    <figcaption>
+                        <h3 class="fs-5 mb-1 text-dark">Ing. Johao Caicedo</h3>
+                        <p class="text-uppercase tracking-wider text-muted m-0"
+                            style="font-size: 11px; letter-spacing: 1px; font-weight: 600;">Soporte Técnico Principal
+                        </p>
+                    </figcaption>
+                </figure>
+            </div>
+        </div>
+        <div class="col-md-6 d-none d-md-flex align-items-center justify-content-center">
+            <img src="{{ url_for('static', filename='img/Soporte.png') }}" class="img-fluid rounded efecto-flotar"
+                alt="Servicio Técnico PC-Fix">
+        </div>
+    </div>
+
+    <div class="contenedor_video ratio ratio-16x9 mt-4">
+        <iframe src="https://www.youtube-nocookie.com/embed/KW5psapQSu4" title="Presentación de Servicios PC-Fix"
+            allowfullscreen></iframe>
+    </div>
+</section>
+
+<section id="solicitud-servicio" class="seccion-contenido mt-4 mb-5">
+    <h2 class="titulo-seccion">Solicitud de Diagnóstico en Línea</h2>
+    <p class="text-muted">Evita filas y agiliza tu atención. Ingresa los datos de tu equipo a continuación para generar
+        una orden de servicio prioritaria.</p>
+
+    <form id="formulario-equipo" class="mb-4 bg-light p-4 rounded border shadow-sm" novalidate>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="nombreCliente" class="form-label fw-bold">Tu Nombre y Modelo del Equipo</label>
+                <input type="text" id="nombreCliente" class="form-control"
+                    placeholder="Ej. Juan Pérez - Laptop HP Pavilion" required>
+                <div class="valid-feedback">¡Se ve bien!</div>
+                <div class="invalid-feedback">Por favor, ingresa al menos 5 caracteres.</div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <label for="tipoServicio" class="form-label fw-bold">¿Qué tipo de asistencia necesitas?</label>
+                <select id="tipoServicio" class="form-select" required>
+                    <option value="">Seleccione el servicio requerido...</option>
+
+                    
+                    <option value="Mantenimiento Preventivo">Mantenimiento Preventivo</option>
+                    <option value="Mantenimiento Correctivo">Mantenimiento Correctivo</option>
+                    <option value="Instalación de Software">Instalación de Software</option>
+                </select>
+                <div class="valid-feedback">¡Categoría seleccionada!</div>
+                <div class="invalid-feedback">Debes seleccionar un tipo de asistencia.</div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="descripcionProblema" class="form-label fw-bold">Cuéntanos sobre el problema</label>
+            <textarea id="descripcionProblema" class="form-control" rows="3" placeholder="Describe la falla aquí..."
+                required></textarea>
+            <div class="valid-feedback">¡Descripción adecuada!</div>
+            <div class="invalid-feedback">Tu descripción debe tener al menos 10 caracteres.</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 fw-bold py-2" id="btn-enviar">
+            <span class="spinner-border spinner-border-sm d-none me-2" id="spinner-carga" role="status"
+                aria-hidden="true"></span>
+            <span id="texto-boton">Generar Orden de Servicio</span>
+        </button>
+    </form>
+
+    <div id="mensaje-alerta"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-dark text-white rounded shadow-sm">
+        <h4 class="m-0 fs-5">Tus Órdenes Generadas</h4>
+        <span class="badge bg-success fs-6 px-3 py-2">Total en cola: <span id="contador-total">0</span></span>
+    </div>
+
+    <div id="lista-equipos" class="row g-3"></div>
+</section>
+
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalEliminarLabel">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar este registro de servicio?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar-eliminar">Sí, Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

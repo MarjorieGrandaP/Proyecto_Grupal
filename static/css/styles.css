@@ -1,0 +1,334 @@
+
+/* ==========================================================================
+   ESTILOS IMPORTADOS (Equipo y Perfil)
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400|Poppins:400,500,600');
+
+/* ==========================================================================
+   Configuración Base y Variables Generales
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333333;
+    background-color: #f9f9f9;
+}
+
+/* ==========================================================================
+   Ajustes de Navbar Bootstrap
+   ========================================================================== */
+.nav-btn {
+    border-radius: 10px;
+    padding: 8px 20px !important;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.nav-btn:hover {
+    transform: scale(1.05);
+    background-color: #1d4ed8 !important;
+}
+
+/* ==========================================================================
+   Diseño de Contenedores y Secciones de Texto
+   ========================================================================== */
+.seccion-contenido {
+    width: 90%;
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 25px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.titulo-seccion {
+    font-size: 2rem;
+    color: #0056b3;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #0056b3;
+    padding-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.seccion-contenido p {
+    font-size: 1.1rem;
+    color: #555555;
+    margin-bottom: 15px;
+    text-align: justify;
+}
+
+.texto-destacado {
+    font-size: 1.2rem !important;
+    font-weight: 500;
+    color: #222222 !important;
+}
+
+/* ==========================================================================
+   Elementos Multimedia
+   ========================================================================== */
+.contenedor_video {
+    text-align: center;
+    margin-top: 20px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+.contenedor_video iframe {
+    border-radius: 8px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Tarjetas de Servicios (Página de servicios)
+   ========================================================================== */
+.contenedor-servicios {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.tarjeta-servicio {
+    background: linear-gradient(145deg, #112248, #0a132e);
+    color: white;
+    padding: 0;
+    border-radius: 12px;
+    text-align: center;
+    border-bottom: 5px solid #d4af37; 
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    overflow: hidden;
+}
+
+.tarjeta-servicio:hover,
+.tarjeta-servicio:focus-within {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    border-bottom-color: #2563eb;
+}
+
+.img-tarjeta {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-bottom: 2px solid #2563eb;
+}
+
+.contenido-tarjeta { padding: 25px 20px; }
+.contenido-tarjeta h3 {
+    color: #ffffff;
+    margin-bottom: 15px;
+}1
+
+.contenido-tarjeta strong {
+    color: #ffffff;
+}
+/* ==========================================================================
+   Módulo de Contacto
+   ========================================================================== */
+.btn-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #25D366;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1rem;
+    padding: 12px 25px;
+    border-radius: 50px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.logo-wa {
+    width: 28px;
+    height: 28px;
+    margin-right: 12px;
+}
+
+.contenedor-mapa iframe {
+    width: 100%;
+    border-radius: 8px;
+}
+
+/* ==========================================================================
+   Consultas de Medios (Responsive)
+   ========================================================================== */
+@media (min-width: 1400px) {
+    .seccion-contenido {
+        max-width: 1200px;
+        padding: 40px;
+    }
+}
+
+@media (max-width: 768px) {
+    .contenedor-mapa iframe {
+        height: 250px;
+    }
+}
+
+
+.section-title-template h1, .section-title-template h2 {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 300;
+    font-size: 2.5em;
+    color: #080646;
+    margin-bottom: 10px;
+}
+
+.team-thumb {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    text-align: center;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: all 0.3s ease;
+}
+
+.team-thumb:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.12); }
+
+.team-info {
+    padding: 25px 20px;
+    background: #ffffff;
+}
+
+.team-info h2 {
+    font-family: 'Open Sans', sans-serif;
+    color: #353535;
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 5px;
+}
+
+.team-info small {
+    display: block;
+    color: #29ca8e;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+}
+
+.team-info p {
+    font-family: 'Open Sans', sans-serif;
+    color: #757575;
+    font-size: 18px;
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.team-thumb img {
+    width: 100%;
+    height: 300px;
+    display: block;
+    object-fit: cover;
+}
+
+.about-info-template h2 {
+    font-family: 'Poppins', sans-serif;
+    color: #2f2587;
+    font-size: 2.8rem;
+    font-weight: 600;
+    letter-spacing: -1px;
+    padding-bottom: 10px;
+    line-height: 1.2;
+}
+
+.about-info-template h2 i { color: #a5c422; }
+
+.about-text-block p {
+    font-family: 'Poppins', sans-serif;
+    color: #757575;
+    font-size: 20px;
+}
+
+.profile-template h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #252525;
+    line-height: 1.2em;
+    margin-bottom: 2px;
+}
+
+@media only screen and (max-width: 639px) {
+    .about-info-template h2 { font-size: 2.1rem; }
+}
+
+/* Animación */
+.efecto-flotar {
+    animation: flotarHaciaArriba 1.2s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes flotarHaciaArriba {
+    0% { opacity: 0; transform: translateY(40px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Contraste del texto en las tarjetas de servicios */
+.seccion-contenido .tarjeta-servicio .contenido-tarjeta p {
+    color: #e5e7eb !important;
+    text-align: left !important;
+}
+
+.seccion-contenido .tarjeta-servicio .contenido-tarjeta strong {
+    color: #ffffff !important;
+}
+
+.seccion-contenido .tarjeta-servicio .contenido-tarjeta h3 {
+    color: #ffffff !important;
+}
+
+/* ==========================================================================
+   Ajustes de Footer
+   ========================================================================== */
+html,
+body {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.footer {
+    width: 100%;
+    margin-top: auto;
+}
+
+.footer p {
+    color: #ffffff !important;
+    text-align: center;
+}
+
+/* ==========================================================================
+   Ajustes de Encabezado
+   ========================================================================== */
+.nombre-plataforma {
+    font-family: 'Poppins', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(37, 99, 235, 0.55);
+}

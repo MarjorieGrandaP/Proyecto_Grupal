@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Servicios Técnicos{% endblock %}
+
+{% block content %}
+
+<section id="servicios" class="seccion-contenido">
+    <h2 class="titulo-seccion text-center">Nuestros Servicios</h2>
+    <div class="text-center mb-4">
+        <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-success">Registrar Nuevo Servicio</a>
+    </div>
+    <p class="texto-destacado text-center mb-5">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
+
+    <div class="contenedor-servicios">
+        {% for servicio in servicios %}
+        <div class="tarjeta-servicio" tabindex="0">
+            <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" class="img-tarjeta">
+            <div class="contenido-tarjeta">
+                <h3>{{ servicio.nombre }}</h3>
+                <p>{{ servicio.descripcion }}</p>
+                <p class="mb-1"><strong>Duración:</strong> {{ servicio.duracion }}</p>
+                <p class="mb-0"><strong>Precio:</strong> ${{ "%.2f"|format(servicio.precio) }}</p>   <!--implementación Jinga2 filtro para formatear el precio -->
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% endblock %}

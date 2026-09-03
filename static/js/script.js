@@ -1,7 +1,5 @@
-// Nos aseguramos de que el DOM esté completamente cargado antes de ejecutar el código
 document.addEventListener("DOMContentLoaded", function () {
     
-    // Captura de elementos del DOM
     const formulario = document.getElementById("formulario-equipo");
     const inputNombre = document.getElementById("nombreCliente");
     const inputTipo = document.getElementById("tipoServicio");
@@ -10,15 +8,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const listaEquipos = document.getElementById("lista-equipos");
     const contadorTotal = document.getElementById("contador-total");
 
-    // Variable para mantener el conteo total de registros
     let totalRegistros = 0;
 
-    // --- 1. FUNCIONES DE VALIDACIÓN DINÁMICA ---
-
-    // Valida la longitud mínima del nombre (mínimo 5 caracteres)
+    // --- 1. FUNCIONES DE VALIDACIÓN ---
     function validarNombre() {
-        const valor = inputNombre.value.trim();
-        if (valor.length >= 5) {
+        if (inputNombre.value.trim().length >= 5) {
             inputNombre.classList.remove("is-invalid");
             inputNombre.classList.add("is-valid");
             return true;
@@ -29,7 +23,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Valida que se haya seleccionado una categoría
     function validarTipo() {
         if (inputTipo.value !== "") {
             inputTipo.classList.remove("is-invalid");
@@ -42,10 +35,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Valida que la descripción tenga información suficiente (mínimo 10 caracteres)
     function validarDescripcion() {
-        const valor = inputDescripcion.value.trim();
-        if (valor.length >= 10) {
+        if (inputDescripcion.value.trim().length >= 10) {
             inputDescripcion.classList.remove("is-invalid");
             inputDescripcion.classList.add("is-valid");
             return true;
@@ -56,77 +47,71 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // --- 2. EVENTOS EN TIEMPO REAL (input, change, blur) ---
-    // Se activan mientras el usuario escribe o interactúa con los campos
-
+    // Eventos en tiempo real
     inputNombre.addEventListener("input", validarNombre);
-    inputNombre.addEventListener("blur", validarNombre);
-
     inputTipo.addEventListener("change", validarTipo); 
-    inputTipo.addEventListener("blur", validarTipo);
-
     inputDescripcion.addEventListener("input", validarDescripcion);
-    inputDescripcion.addEventListener("blur", validarDescripcion);
 
-
-    // --- 3. MANEJO DEL EVENTO SUBMIT ---
+    // --- 2. MANEJO DEL EVENTO SUBMIT (CON SPINNER) ---
     formulario.addEventListener("submit", function (evento) {
-        
-        // Utilice preventDefault() para evitar que la página se recargue
         evento.preventDefault();
 
-        // Ejecutar todas las validaciones al momento de enviar
         const esNombreValido = validarNombre();
         const esTipoValido = validarTipo();
         const esDescValida = validarDescripcion();
 
-        // Permite registrar información únicamente cuando todas las validaciones sean correctas
         if (esNombreValido && esTipoValido && esDescValida) {
             
-            // Extraer valores finales
-            const nombre = inputNombre.value.trim();
-            const tipo = inputTipo.value;
-            const descripcion = inputDescripcion.value.trim();
+            // Elementos del botón y spinner
+            const btnEnviar = document.getElementById("btn-enviar");
+            const spinner = document.getElementById("spinner-carga");
+            const textoBoton = document.getElementById("texto-boton");
 
-            // Agregar el registro al DOM
-            agregarRegistroDOM(nombre, tipo, descripcion);
+            // Estado de "Cargando"
+            btnEnviar.disabled = true;
+            spinner.classList.remove("d-none");
+            textoBoton.textContent = " Procesando Orden...";
 
-            // Muestre mensajes dinámicos de éxito
-            mostrarMensaje("¡Equipo registrado con éxito!", "success");
+            // Simular proceso con setTimeout (Spinner de Bootstrap)
+            setTimeout(() => {
+                const nombre = inputNombre.value.trim();
+                const tipo = inputTipo.value;
+                const descripcion = inputDescripcion.value.trim();
 
-            // Limpiar el formulario para un nuevo ingreso
-            formulario.reset();
+                agregarRegistroDOM(nombre, tipo, descripcion);
+                mostrarMensaje("¡Orden de servicio generada con éxito!", "success");
 
-            // Quitar las clases visuales de validación para resetear el estado visual
-            inputNombre.classList.remove("is-valid");
-            inputTipo.classList.remove("is-valid");
-            inputDescripcion.classList.remove("is-valid");
+                formulario.reset();
+                inputNombre.classList.remove("is-valid");
+                inputTipo.classList.remove("is-valid");
+                inputDescripcion.classList.remove("is-valid");
+
+                // Restaurar Botón
+                btnEnviar.disabled = false;
+                spinner.classList.add("d-none");
+                textoBoton.textContent = "Generar Orden de Servicio";
+            }, 1500); // Demora simulada de 1.5 segundos
 
         } else {
-            // Muestre mensajes dinámicos de error
             mostrarMensaje("Por favor, verifica los campos marcados en rojo antes de continuar.", "danger");
         }
     });
 
-    // Función para mostrar alertas dinámicas de Bootstrap
+    // --- 3. ALERTAS BOOTSTRAP ---
     function mostrarMensaje(texto, tipoBootstrap) {
         contenedorMensajes.innerHTML = `
-            <div class="alert alert-${tipoBootstrap} alert-dismissible fade show" role="alert">
+            <div class="alert alert-${tipoBootstrap} alert-dismissible fade show shadow-sm" role="alert">
                 <strong>${tipoBootstrap === 'danger' ? 'Error:' : 'Éxito:'}</strong> ${texto}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         `;
-
-        // Quitar la alerta automáticamente después de 3 segundos
-        setTimeout(() => {
-            contenedorMensajes.innerHTML = "";
-        }, 3000);
+        setTimeout(() => { contenedorMensajes.innerHTML = ""; }, 4000);
     }
 
-    // Función principal para crear y mostrar registros en pantalla (Mantenida intacta)
+    // --- 4. RENDERIZADO DOM Y MODAL BOOTSTRAP ---
     function agregarRegistroDOM(nombre, tipo, descripcion) {
-        
         const columna = document.createElement("div");
-        columna.className = "col-md-6 col-lg-4";
+        columna.className = "col-md-6 col-lg-4 efecto-flotar";
 
         const tarjeta = document.createElement("div");
         tarjeta.className = "card h-100 shadow-sm border-info";
@@ -147,16 +132,29 @@ document.addEventListener("DOMContentLoaded", function () {
         textoDescriptivo.textContent = descripcion;
 
         const botonEliminar = document.createElement("button");
-        botonEliminar.className = "btn btn-danger btn-sm w-100 mt-2";
-        botonEliminar.textContent = "Eliminar Registro";
+        botonEliminar.className = "btn btn-outline-danger btn-sm w-100 mt-2";
+        botonEliminar.innerHTML = '<i class="fa fa-trash"></i> Eliminar Registro';
 
-        // Eliminar registro
+        // Lógica de Modal al eliminar
         botonEliminar.addEventListener("click", function () {
-            columna.remove();
-            actualizarContador(-1);
+            // Instanciar el Modal de Bootstrap
+            const modalEliminar = new bootstrap.Modal(document.getElementById('modalEliminar'));
+            const btnConfirmar = document.getElementById("btn-confirmar-eliminar");
+            
+            modalEliminar.show();
+
+            // Reemplazar el botón confirmar para limpiar eventos previos (evita borrar múltiples registros)
+            const nuevoBtnConfirmar = btnConfirmar.cloneNode(true);
+            btnConfirmar.parentNode.replaceChild(nuevoBtnConfirmar, btnConfirmar);
+
+            nuevoBtnConfirmar.addEventListener("click", function() {
+                columna.remove();
+                actualizarContador(-1);
+                modalEliminar.hide(); // Cerrar modal
+                mostrarMensaje("Registro eliminado correctamente.", "warning");
+            });
         });
 
-        // Ensamblar la tarjeta
         cuerpoTarjeta.appendChild(titulo);
         cuerpoTarjeta.appendChild(subtitulo);
         cuerpoTarjeta.appendChild(textoDescriptivo);
@@ -164,17 +162,13 @@ document.addEventListener("DOMContentLoaded", function () {
         
         tarjeta.appendChild(cuerpoTarjeta);
         columna.appendChild(tarjeta);
-
         listaEquipos.appendChild(columna);
 
-        // Aumentar contador
         actualizarContador(1);
     }
 
-    // Actualizar el contador en pantalla
     function actualizarContador(cambio) {
         totalRegistros += cambio;
         contadorTotal.textContent = totalRegistros;
     }
 });
-

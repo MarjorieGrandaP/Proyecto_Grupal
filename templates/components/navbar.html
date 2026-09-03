@@ -1,0 +1,114 @@
+<!--Menú de opciones proveniente del archivo base.html-->
+<nav class="navbar navbar-expand-lg navbar-dark"
+     style="background-color: #0f172a;">
+
+    <div class="container-fluid">
+
+        <!-- Botón hamburguesa para celulares -->
+        <button
+            class="navbar-toggler mx-auto mb-2"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#menuPrincipal"
+            aria-controls="menuPrincipal"
+            aria-expanded="false"
+            aria-label="Mostrar menú de navegación"
+        >
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div
+            class="collapse navbar-collapse justify-content-center"
+            id="menuPrincipal"
+        >
+            <ul class="navbar-nav gap-3 align-items-center">
+
+                <li class="nav-item">
+                    <a
+                        href="{{ url_for('index') }}"
+                        class="nav-link btn nav-btn text-white"
+                        style="{% if active == 'inicio' %}background-color: #d4af37; color: #112248; font-weight: bold;{% else %}background-color: #2563eb;{% endif %}"
+                    >
+                        Inicio
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a
+                        href="{{ url_for('conocenos') }}"
+                        class="nav-link btn nav-btn text-white"
+                        style="{% if active == 'conocenos' %}background-color: #d4af37; color: #112248; font-weight: bold;{% else %}background-color: #2563eb;{% endif %}"
+                    >
+                        Conócenos
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a
+                        href="{{ url_for('servicios') }}"
+                        class="nav-link btn nav-btn text-white"
+                        style="{% if active == 'servicios' %}background-color: #d4af37; color: #112248; font-weight: bold;{% else %}background-color: #2563eb;{% endif %}"
+                    >
+                        Servicios
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a
+                        href="{{ url_for('contacto') }}"
+                        class="nav-link btn nav-btn text-white"
+                        style="{% if active == 'contacto' %}background-color: #d4af37; color: #112248; font-weight: bold;{% else %}background-color: #2563eb;{% endif %}"
+                    >
+                        Contacto
+                    </a>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <button
+                        class="nav-link btn nav-btn text-white dropdown-toggle"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        style="{% if active == 'clientes' or active == 'proveedores' or active == 'facturacion' %}background-color: #d4af37; color: #112248; font-weight: bold;{% else %}background-color: #2563eb;{% endif %}"
+                    >
+                        Módulos
+                    </button>
+
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a
+                                class="dropdown-item"
+                                href="{{ url_for('clientes') }}"
+                            >
+                                Clientes
+                            </a>
+                        </li>
+
+                        <li>
+                            <a
+                                class="dropdown-item"
+                                href="{{ url_for('proveedores') }}"
+                            >
+                                Proveedores
+                            </a>
+                        </li>
+
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
+                        <li>
+                            <a
+                                class="dropdown-item"
+                                href="{{ url_for('facturacion') }}"
+                            >
+                                Facturación
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+            </ul>
+        </div>
+    </div>
+</nav>

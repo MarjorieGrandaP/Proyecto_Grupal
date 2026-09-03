@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - {{ titulo }}{% endblock %}
+
+{% block content %}
+<section class="seccion-contenido my-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <h2 class="titulo-seccion text-center mb-4">{{ titulo }}</h2>
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="POST" action="">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.numero.label(class="form-label fw-bold") }}
+                            {{ form.numero(class="form-control") }}
+                            {% for error in form.numero.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.cliente.label(class="form-label fw-bold") }}
+                            {{ form.cliente(class="form-control") }}
+                            {% for error in form.cliente.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.servicio.label(class="form-label fw-bold") }}
+                            {{ form.servicio(class="form-control") }}
+                            {% for error in form.servicio.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.fecha.label(class="form-label fw-bold") }}
+                            {{ form.fecha(class="form-control", type="date") }}
+                            {% for error in form.fecha.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.total.label(class="form-label fw-bold") }}
+                            {{ form.total(class="form-control") }}
+                            {% for error in form.total.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.estado.label(class="form-label fw-bold") }}
+                            {{ form.estado(class="form-select") }}
+                            {% for error in form.estado.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{{ url_for('facturacion') }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
