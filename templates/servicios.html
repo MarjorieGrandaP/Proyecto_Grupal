@@ -11,18 +11,33 @@
     </div>
     <p class="texto-destacado text-center mb-5">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
 
-    <div class="contenedor-servicios">
-        {% for servicio in servicios %}
-        <div class="tarjeta-servicio" tabindex="0">
-            <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" class="img-tarjeta">
-            <div class="contenido-tarjeta">
-                <h3>{{ servicio.nombre }}</h3>
-                <p>{{ servicio.descripcion }}</p>
-                <p class="mb-1"><strong>Duración:</strong> {{ servicio.duracion }}</p>
-                <p class="mb-0"><strong>Precio:</strong> ${{ "%.2f"|format(servicio.precio) }}</p>   <!--implementación Jinga2 filtro para formatear el precio -->
-            </div>
-        </div>
-        {% endfor %}
+    <div class="table-responsive shadow-sm rounded border">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Imagen</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Descripción</th>
+                    <th scope="col">Duración</th>
+                    <th scope="col">Precio</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for servicio in servicios %}
+                <tr>
+                    <td>{{ servicio.id }}</td>
+                    <td>
+                        <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;" class="rounded">
+                    </td>
+                    <td class="fw-bold">{{ servicio.nombre }}</td>
+                    <td>{{ servicio.descripcion }}</td>
+                    <td>{{ servicio.duracion }}</td>
+                    <td>${{ "%.2f"|format(servicio.precio) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 

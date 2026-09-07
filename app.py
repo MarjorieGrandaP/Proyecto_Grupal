@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 from forms import ProductoForm, ClienteForm, ProveedorForm, FacturacionForm
+import sqlite3
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mi_secreto_super_seguro_123'
@@ -11,50 +13,46 @@ TIPOS_ASISTENCIA = [            #tipos de mantenimiento
 ]
 # ===== Datos de ejemplo (sin base de datos en esta etapa) =====
 
-SERVICIOS = [
-    {
-        "nombre": "Mantenimiento Preventivo",
-        "descripcion": "Limpieza interna profunda, cambio de pasta térmica de alta calidad y revisión exhaustiva de componentes.",
-        "precio": 25.00,
-        "duracion": "1 hora",
-        "imagen": "servicio-1.jpg",
-    },
-    {
-        "nombre": "Mantenimiento Correctivo",
-        "descripcion": "Diagnóstico preciso, reparación a nivel de placa y reemplazo de hardware dañado.",
-        "precio": 40.00,
-        "duracion": "2 horas",
-        "imagen": "servicio-2.jpg",
-    },
-    {
-        "nombre": "Optimización y Limpieza",
-        "descripcion": "Aceleramos el rendimiento de tu sistema operativo y eliminamos virus o malware.",
-        "precio": 20.00,
-        "duracion": "45 minutos",
-        "imagen": "servicio-3.jpg",
-    },
-    {
-        "nombre": "Instalación de Software",
-        "descripcion": "Instalación desde cero y actualización de sistemas operativos y programas esenciales.",
-        "precio": 15.00,
-        "duracion": "30 minutos",
-        "imagen": "servicio-4.jpg",
-    },
-    {
-        "nombre": "Formateo e Instalación de Windows",
-        "descripcion": "Formateo seguro del disco, instalación de Windows y configuración de controladores.",
-        "precio": 30.00,
-        "duracion": "1.5 horas",
-        "imagen": "servicio-4.jpg",
-    },
-    {
-        "nombre": "Recuperación de Datos",
-        "descripcion": "Recuperación de información vital desde discos dañados, USB o tarjetas de memoria.",
-        "precio": 60.00,
-        "duracion": "Variable",
-        "imagen": "servicio-1.jpg",
-    },
-]
+DB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'pcfix.db')
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    # Crear tabla de productos/servicios
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS servicios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            precio REAL NOT NULL,
+            duracion TEXT NOT NULL,
+            imagen TEXT NOT NULL
+        )
+    ''')
+    
+    # Verificar si está vacía para insertar datos iniciales
+    cursor = conn.execute('SELECT COUNT(*) FROM servicios')
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        initial_data = [
+            ("Mantenimiento Preventivo", "Limpieza interna profunda, cambio de pasta térmica de alta calidad y revisión exhaustiva de componentes.", 25.00, "1 hora", "servicio-1.jpg"),
+            ("Mantenimiento Correctivo", "Diagnóstico preciso, reparación a nivel de placa y reemplazo de hardware dañado.", 40.00, "2 horas", "servicio-2.jpg"),
+            ("Optimización y Limpieza", "Aceleramos el rendimiento de tu sistema operativo y eliminamos virus o malware.", 20.00, "45 minutos", "servicio-3.jpg"),
+            ("Instalación de Software", "Instalación desde cero y actualización de sistemas operativos y programas esenciales.", 15.00, "30 minutos", "servicio-4.jpg"),
+            ("Formateo e Instalación de Windows", "Formateo seguro del disco, instalación de Windows y configuración de controladores.", 30.00, "1.5 horas", "servicio-4.jpg"),
+            ("Recuperación de Datos", "Recuperación de información vital desde discos dañados, USB o tarjetas de memoria.", 60.00, "Variable", "servicio-1.jpg")
+        ]
+        conn.executemany('INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen) VALUES (?, ?, ?, ?, ?)', initial_data)
+        
+    conn.commit()
+    conn.close()
+
+init_db()
 
 CLIENTES = [
     {"nombre": "Ana Torres", "telefono": "0991234567", "equipo": "Laptop HP Pavilion", "estado": "En revisión"},
@@ -90,20 +88,20 @@ def conocenos():
 
 @app.route("/servicios")
 def servicios():
-    return render_template("servicios.html", active="servicios", servicios=SERVICIOS)
+    conn = get_db_connection()
+    servicios_db = conn.execute('SELECT * FROM servicios').fetchall()
+    conn.close()
+    return render_template("servicios.html", active="servicios", servicios=servicios_db)
 
 @app.route("/servicios/nuevo", methods=['GET', 'POST'])
 def nuevo_servicio():
     form = ProductoForm()
     if form.validate_on_submit():
-        nuevo_item = {
-            "nombre": form.nombre.data,
-            "descripcion": form.descripcion.data,
-            "precio": form.precio.data,
-            "duracion": form.duracion.data,
-            "imagen": form.imagen.data
-        }
-        SERVICIOS.append(nuevo_item)
+        conn = get_db_connection()
+        conn.execute('INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen) VALUES (?, ?, ?, ?, ?)',
+                     (form.nombre.data, form.descripcion.data, form.precio.data, form.duracion.data, form.imagen.data))
+        conn.commit()
+        conn.close()
         return redirect(url_for('servicios'))
     return render_template("formulario_producto.html", active="servicios", form=form, titulo="Nuevo Servicio")
 
