@@ -165,11 +165,102 @@
                 Nuestros Servicios
             </h2>
 
-            <p class="texto-destacado text-center mb-5">
+            <p class="texto-destacado text-center mb-4">
                 Ofrecemos una amplia gama de soluciones técnicas con los
                 más altos estándares de calidad para mantener tus equipos
                 en perfectas condiciones.
             </p>
+
+            <!-- Tabla de gestión CRUD con PostgreSQL (Evidencia Semana 13) -->
+            <div class="card shadow-sm mb-5 border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="m-0 fw-bold">Gestión de Servicios Registrados</h5>
+                    <button class="btn btn-sm btn-success" onclick="alert('En el entorno Flask en vivo, este botón abre el formulario de registro con validaciones Flask-WTF.')">
+                        + Registrar Nuevo Servicio
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col" class="text-center">ID</th>
+                                <th scope="col">Imagen</th>
+                                <th scope="col">Nombre</th>
+                                <th scope="col">Proveedor Asociado</th>
+                                <th scope="col">Duración</th>
+                                <th scope="col">Precio</th>
+                                <th scope="col" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-center fw-bold">1</td>
+                                <td><img src="../static/img/servicio-1.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td class="fw-bold">Mantenimiento Preventivo</td>
+                                <td><span class="badge bg-secondary">TecnoRepuestos S.A.</span></td>
+                                <td>1 hora</td>
+                                <td class="text-success fw-bold">$25.00</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/1 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Mantenimiento Preventivo">Eliminar</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center fw-bold">2</td>
+                                <td><img src="../static/img/servicio-2.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td class="fw-bold">Mantenimiento Correctivo</td>
+                                <td><span class="badge bg-secondary">TecnoRepuestos S.A.</span></td>
+                                <td>2 horas</td>
+                                <td class="text-success fw-bold">$40.00</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/2 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Mantenimiento Correctivo">Eliminar</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-center fw-bold">3</td>
+                                <td><img src="../static/img/servicio-3.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td class="fw-bold">Optimización y Limpieza</td>
+                                <td><span class="badge bg-secondary">PC Parts Ecuador</span></td>
+                                <td>45 minutos</td>
+                                <td class="text-success fw-bold">$20.00</td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/3 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Optimización y Limpieza">Eliminar</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal de confirmación para GitHub Pages estático -->
+            <div class="modal fade" id="modalEliminarDemo" tabindex="-1" aria-labelledby="modalEliminarDemoLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title" id="modalEliminarDemoLabel">Confirmar Eliminación</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>¿Estás seguro de que deseas eliminar permanentemente el servicio seleccionado?</p>
+                            <div class="alert alert-warning py-2 mb-0 small">
+                                En la aplicación Flask en vivo, esta acción ejecuta una consulta DELETE FROM en PostgreSQL.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-danger" data-bs-dismiss="modal" onclick="alert('En la aplicación Flask real, el registro es eliminado de la base de datos PostgreSQL.')">Eliminar Definitivamente</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="contenedor-servicios">
 

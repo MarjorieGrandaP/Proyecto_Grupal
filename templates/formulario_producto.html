@@ -45,11 +45,20 @@
                         </div>
 
                         <div class="mb-3">
+                            {{ form.id_proveedor.label(class="form-label fw-bold") }}
+                            {{ form.id_proveedor(class="form-select") }}
+                            {% for error in form.id_proveedor.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
                             {{ form.imagen.label(class="form-label fw-bold") }}
                             {{ form.imagen(class="form-control") }}
                             {% for error in form.imagen.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="form-text">Ejemplo: servicio-1.jpg, servicio-2.jpg, servicio-3.jpg o servicio-4.jpg</div>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">

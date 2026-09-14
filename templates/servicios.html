@@ -7,23 +7,123 @@
 <section id="servicios" class="seccion-contenido">
     <h2 class="titulo-seccion text-center">Nuestros Servicios</h2>
     <div class="text-center mb-4">
-        <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-success">Registrar Nuevo Servicio</a>
+        <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-success">
+            <i class="bi bi-plus-circle"></i> Registrar Nuevo Servicio
+        </a>
     </div>
-    <p class="texto-destacado text-center mb-5">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
+    <p class="texto-destacado text-center mb-4">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
 
-    <div class="contenedor-servicios">
-        {% for servicio in servicios %}
-        <div class="tarjeta-servicio" tabindex="0">
-            <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" class="img-tarjeta">
-            <div class="contenido-tarjeta">
-                <h3>{{ servicio.nombre }}</h3>
-                <p>{{ servicio.descripcion }}</p>
-                <p class="mb-1"><strong>Duración:</strong> {{ servicio.duracion }}</p>
-                <p class="mb-0"><strong>Precio:</strong> ${{ "%.2f"|format(servicio.precio) }}</p>   <!--implementación Jinga2 filtro para formatear el precio -->
-            </div>
-        </div>
-        {% endfor %}
+    <!-- Mensajes Flash de Retroalimentación -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="table-responsive shadow-sm rounded border">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col" class="text-center">ID</th>
+                    <th scope="col">Imagen</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Proveedor Asociado</th>
+                    <th scope="col">Duración</th>
+                    <th scope="col">Precio</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for servicio in servicios %}
+                <tr>
+                    <td class="text-center fw-bold">{{ servicio.id_servicio }}</td>
+                    <td>
+                        <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;" class="rounded border">
+                    </td>
+                    <td class="fw-bold">{{ servicio.nombre }}</td>
+                    <td>
+                        <span class="badge bg-secondary">{{ servicio.proveedor_empresa or 'Sin proveedor' }}</span>
+                    </td>
+                    <td>{{ servicio.duracion }}</td>
+                    <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}</td>
+                    <td class="text-center">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}" class="btn btn-sm btn-outline-primary" title="Modificar">
+                                Modificar
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#modalEliminar" 
+                                    data-id="{{ servicio.id_servicio }}" 
+                                    data-nombre="{{ servicio.nombre }}"
+                                    title="Eliminar">
+                                Eliminar
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No hay servicios registrados en la base de datos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </section>
 
+<!-- Modal de Confirmación Visual para Eliminar -->
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="modalEliminarLabel">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar permanentemente el servicio <strong id="nombreServicioEliminar"></strong>?</p>
+                <div class="alert alert-warning py-2 mb-0 small">
+                    Esta acción eliminará el registro directamente de la base de datos PostgreSQL y no se podrá recuperar.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formEliminar" method="POST" action="">
+                    <button type="submit" class="btn btn-danger">Eliminar Definitivamente</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var modalEliminar = document.getElementById('modalEliminar');
+        if (modalEliminar) {
+            modalEliminar.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var servicioId = button.getAttribute('data-id');
+                var servicioNombre = button.getAttribute('data-nombre');
+                
+                var nombreSpan = modalEliminar.querySelector('#nombreServicioEliminar');
+                var formEliminar = modalEliminar.querySelector('#formEliminar');
+                
+                if (nombreSpan) {
+                    nombreSpan.textContent = servicioNombre;
+                }
+                if (formEliminar) {
+                    formEliminar.action = '/servicios/eliminar/' + servicioId;
+                }
+            });
+        }
+    });
+</script>
 {% endblock %}
