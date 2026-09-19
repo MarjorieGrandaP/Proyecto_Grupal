@@ -6,23 +6,26 @@
 
 <section id="servicios" class="seccion-contenido">
     <h2 class="titulo-seccion text-center">Nuestros Servicios</h2>
+    {% if current_user.rol == "admin" %}
     <div class="text-center mb-4">
         <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-success">
             <i class="bi bi-plus-circle"></i> Registrar Nuevo Servicio
         </a>
     </div>
-    <p class="texto-destacado text-center mb-4">Ofrecemos una amplia gama de soluciones técnicas con los más altos estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
+    {% endif %}
+    <p class="texto-destacado text-center mb-4">Ofrecemos una amplia gama de soluciones técnicas con los más altos
+        estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
 
     <!-- Mensajes Flash de Retroalimentación -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endwith %}
 
     <div class="table-responsive shadow-sm rounded border">
@@ -35,7 +38,9 @@
                     <th scope="col">Proveedor Asociado</th>
                     <th scope="col">Duración</th>
                     <th scope="col">Precio</th>
+                    {% if current_user.rol == "admin" %}
                     <th scope="col" class="text-center">Acciones</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -43,7 +48,9 @@
                 <tr>
                     <td class="text-center fw-bold">{{ servicio.id_servicio }}</td>
                     <td>
-                        <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}" alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;" class="rounded border">
+                        <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}"
+                            alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;"
+                            class="rounded border">
                     </td>
                     <td class="fw-bold">{{ servicio.nombre }}</td>
                     <td>
@@ -51,25 +58,27 @@
                     </td>
                     <td>{{ servicio.duracion }}</td>
                     <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}</td>
+                    {% if current_user.rol == "admin" %}
                     <td class="text-center">
                         <div class="btn-group" role="group">
-                            <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}" class="btn btn-sm btn-outline-primary" title="Modificar">
+                            <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}"
+                                class="btn btn-sm btn-outline-primary" title="Modificar">
                                 Modificar
                             </a>
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#modalEliminar" 
-                                    data-id="{{ servicio.id_servicio }}" 
-                                    data-nombre="{{ servicio.nombre }}"
-                                    title="Eliminar">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar"
+                                data-bs-toggle="modal" data-bs-target="#modalEliminar"
+                                data-id="{{ servicio.id_servicio }}" data-nombre="{{ servicio.nombre }}"
+                                title="Eliminar">
                                 Eliminar
                             </button>
                         </div>
                     </td>
+                    {% endif %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No hay servicios registrados en la base de datos.</td>
+                    <td colspan="{{ 7 if current_user.rol == 'admin' else 6 }}" class="text-center text-muted py-4">No
+                        hay servicios registrados en la base de datos.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -83,12 +92,15 @@
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="modalEliminarLabel">Confirmar Eliminación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar permanentemente el servicio <strong id="nombreServicioEliminar"></strong>?</p>
+                <p>¿Estás seguro de que deseas eliminar permanentemente el servicio <strong
+                        id="nombreServicioEliminar"></strong>?</p>
                 <div class="alert alert-warning py-2 mb-0 small">
-                    Esta acción eliminará el registro directamente de la base de datos PostgreSQL y no se podrá recuperar.
+                    Esta acción eliminará el registro directamente de la base de datos PostgreSQL y no se podrá
+                    recuperar.
                 </div>
             </div>
             <div class="modal-footer">
@@ -112,10 +124,10 @@
                 var button = event.relatedTarget;
                 var servicioId = button.getAttribute('data-id');
                 var servicioNombre = button.getAttribute('data-nombre');
-                
+
                 var nombreSpan = modalEliminar.querySelector('#nombreServicioEliminar');
                 var formEliminar = modalEliminar.querySelector('#formEliminar');
-                
+
                 if (nombreSpan) {
                     nombreSpan.textContent = servicioNombre;
                 }

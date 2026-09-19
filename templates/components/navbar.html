@@ -5,29 +5,19 @@
      existe o no un usuario autenticado mediante Flask-Login.
 ======================================================= -->
 
-<nav class="navbar navbar-expand-lg navbar-dark"
-     style="background-color: #0f172a;">
+<nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #0f172a;">
 
     <div class="container-fluid">
 
         <!-- Botón hamburguesa para dispositivos pequeños -->
-        <button
-            class="navbar-toggler mx-auto mb-2"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#menuPrincipal"
-            aria-controls="menuPrincipal"
-            aria-expanded="false"
-            aria-label="Mostrar menú de navegación"
-        >
+        <button class="navbar-toggler mx-auto mb-2" type="button" data-bs-toggle="collapse"
+            data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false"
+            aria-label="Mostrar menú de navegación">
             <span class="navbar-toggler-icon"></span>
         </button>
 
 
-        <div
-            class="collapse navbar-collapse justify-content-center"
-            id="menuPrincipal"
-        >
+        <div class="collapse navbar-collapse justify-content-center" id="menuPrincipal">
 
             <ul class="navbar-nav gap-3 align-items-center">
 
@@ -37,51 +27,39 @@
                 =================================================== -->
 
                 <li class="nav-item">
-                    <a
-                        href="{{ url_for('index') }}"
-                        class="nav-link btn nav-btn text-white"
-                        style="{% if active == 'inicio' %}
+                    <a href="{{ url_for('index') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'inicio' %}
                             background-color: #d4af37;
                             color: #112248;
                             font-weight: bold;
                         {% else %}
                             background-color: #2563eb;
-                        {% endif %}"
-                    >
+                        {% endif %}">
                         Inicio
                     </a>
                 </li>
 
 
                 <li class="nav-item">
-                    <a
-                        href="{{ url_for('conocenos') }}"
-                        class="nav-link btn nav-btn text-white"
-                        style="{% if active == 'conocenos' %}
+                    <a href="{{ url_for('conocenos') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'conocenos' %}
                             background-color: #d4af37;
                             color: #112248;
                             font-weight: bold;
                         {% else %}
                             background-color: #2563eb;
-                        {% endif %}"
-                    >
+                        {% endif %}">
                         Conócenos
                     </a>
                 </li>
 
 
                 <li class="nav-item">
-                    <a
-                        href="{{ url_for('contacto') }}"
-                        class="nav-link btn nav-btn text-white"
-                        style="{% if active == 'contacto' %}
+                    <a href="{{ url_for('contacto') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'contacto' %}
                             background-color: #d4af37;
                             color: #112248;
                             font-weight: bold;
                         {% else %}
                             background-color: #2563eb;
-                        {% endif %}"
-                    >
+                        {% endif %}">
                         Contacto
                     </a>
                 </li>
@@ -93,51 +71,26 @@
 
                 {% if current_user.is_authenticated %}
 
-                    <!-- Acceso al panel privado -->
-                    <li class="nav-item">
-                        <a
-                            href="{{ url_for('dashboard') }}"
-                            class="nav-link btn nav-btn text-white"
-                            style="{% if active == 'dashboard' %}
+                <!-- Servicios -->
+                <li class="nav-item">
+                    <a href="{{ url_for('servicios') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'servicios' %}
                                 background-color: #d4af37;
                                 color: #112248;
                                 font-weight: bold;
                             {% else %}
                                 background-color: #2563eb;
-                            {% endif %}"
-                        >
-                            Panel
-                        </a>
-                    </li>
+                            {% endif %}">
+                        Servicios
+                    </a>
+                </li>
 
 
-                    <!-- Servicios -->
-                    <li class="nav-item">
-                        <a
-                            href="{{ url_for('servicios') }}"
-                            class="nav-link btn nav-btn text-white"
-                            style="{% if active == 'servicios' %}
-                                background-color: #d4af37;
-                                color: #112248;
-                                font-weight: bold;
-                            {% else %}
-                                background-color: #2563eb;
-                            {% endif %}"
-                        >
-                            Servicios
-                        </a>
-                    </li>
+                {% if current_user.rol == "admin" %}
+                <!-- Módulos administrativos: visibles únicamente para administradores. -->
+                <li class="nav-item dropdown">
 
-
-                    <!-- Módulos administrativos -->
-                    <li class="nav-item dropdown">
-
-                        <button
-                            class="nav-link btn nav-btn text-white dropdown-toggle"
-                            type="button"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                            style="{% if active == 'clientes'
+                    <button class="nav-link btn nav-btn text-white dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false" style="{% if active == 'clientes'
                                 or active == 'proveedores'
                                 or active == 'facturacion' %}
                                 background-color: #d4af37;
@@ -145,98 +98,107 @@
                                 font-weight: bold;
                             {% else %}
                                 background-color: #2563eb;
-                            {% endif %}"
-                        >
-                            Módulos
-                        </button>
+                            {% endif %}">
+                        Módulos
+                    </button>
 
-                        <ul class="dropdown-menu dropdown-menu-end">
+                    <ul class="dropdown-menu dropdown-menu-end">
 
-                            <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="{{ url_for('clientes') }}"
-                                >
-                                    Clientes
-                                </a>
-                            </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('clientes') }}">
+                                Clientes
+                            </a>
+                        </li>
 
-                            <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="{{ url_for('proveedores') }}"
-                                >
-                                    Proveedores
-                                </a>
-                            </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('proveedores') }}">
+                                Proveedores
+                            </a>
+                        </li>
 
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
 
-                            <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="{{ url_for('facturacion') }}"
-                                >
-                                    Facturación
-                                </a>
-                            </li>
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('facturacion') }}">
+                                Facturación
+                            </a>
+                        </li>
 
-                        </ul>
+                    </ul>
 
-                    </li>
+                </li>
+                {% endif %}
 
 
-                    <!--
+                <!--
                         current_user representa al usuario que
                         mantiene actualmente una sesión activa.
                     -->
-                    <li class="nav-item">
-                        <span class="navbar-text text-white">
-                            Usuario:
-                            <strong>
-                                {{ current_user.usuario }}
-                            </strong>
-                        </span>
-                    </li>
+                <li class="nav-item">
+                    <span class="navbar-text text-white">
+                        {% if current_user.imagen %}
+                        <img src="{{ url_for('static', filename='uploads/perfiles/' + current_user.imagen) }}"
+                            alt="Avatar" class="rounded-circle me-1"
+                            style="width: 28px; height: 28px; object-fit: cover;">
+                        {% else %}
+                        <span class="me-1" role="img" aria-label="Avatar predeterminado"
+                            style="font-size: 1.35rem; line-height: 1;">&#128100;</span>
+                        {% endif %}
+                        Usuario:
+                        <strong>
+                            {{ current_user.usuario }}
+                        </strong>
+                    </span>
+                </li>
+
+                <!-- Acceso al panel privado junto a las opciones del usuario. -->
+                <li class="nav-item">
+                    <a href="{{ url_for('dashboard') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'dashboard' %}
+                                background-color: #d4af37;
+                                color: #112248;
+                                font-weight: bold;
+                            {% else %}
+                                background-color: #2563eb;
+                            {% endif %}">
+                        Panel
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{ url_for('perfil') }}" class="btn btn-outline-light">
+                        Mi perfil
+                    </a>
+                </li>
 
 
-                    <!-- Cerrar la sesión actual -->
-                    <li class="nav-item">
-                        <a
-                            href="{{ url_for('logout') }}"
-                            class="btn btn-outline-danger"
-                        >
-                            Cerrar sesión
-                        </a>
-                    </li>
+                <!-- Cerrar la sesión actual -->
+                <li class="nav-item">
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                        Cerrar sesión
+                    </a>
+                </li>
 
 
                 {% else %}
 
-                    <!-- ==================================================
+                <!-- ==================================================
                          SI NO EXISTE UNA SESIÓN ACTIVA
                     =================================================== -->
 
-                    <li class="nav-item">
-                        <a
-                            href="{{ url_for('login') }}"
-                            class="btn btn-outline-light"
-                        >
-                            Iniciar sesión
-                        </a>
-                    </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-light">
+                        Iniciar sesión
+                    </a>
+                </li>
 
 
-                    <li class="nav-item">
-                        <a
-                            href="{{ url_for('registro') }}"
-                            class="btn btn-warning"
-                        >
-                            Registrarse
-                        </a>
-                    </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('registro') }}" class="btn btn-warning">
+                        Registrarse
+                    </a>
+                </li>
 
                 {% endif %}
 

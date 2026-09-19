@@ -12,27 +12,22 @@ class LoginForm(FlaskForm):
     comprobados contra la información almacenada en PostgreSQL.
     """
 
-    # Nombre de usuario registrado en la base de datos.
+    # Permite iniciar sesión con el nombre de usuario o el correo registrado.
     usuario = StringField(
-        'Usuario',
+        "Usuario o correo electrónico",
         validators=[
-            DataRequired(message='El nombre de usuario es obligatorio.'),
+            DataRequired(message="El nombre de usuario es obligatorio."),
             Length(
-                min=3,
-                max=50,
-                message='El usuario debe tener entre 3 y 50 caracteres.'
-            )
-        ]
+                min=3, max=50, message="El usuario debe tener entre 3 y 50 caracteres."
+            ),
+        ],
     )
 
     # La contraseña se recibe mediante PasswordField para que
     # el navegador no muestre los caracteres escritos.
     password = PasswordField(
-        'Contraseña',
-        validators=[
-            DataRequired(message='La contraseña es obligatoria.')
-        ]
+        "Contraseña", validators=[DataRequired(message="La contraseña es obligatoria.")]
     )
 
     # Botón encargado de enviar el formulario mediante POST.
-    submit = SubmitField('Iniciar sesión')
+    submit = SubmitField("Iniciar sesión")

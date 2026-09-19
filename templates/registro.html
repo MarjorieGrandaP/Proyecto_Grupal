@@ -27,28 +27,20 @@
             <!-- Mensajes generados desde Flask -->
             {% with messages = get_flashed_messages(with_categories=true) %}
 
-                {% if messages %}
+            {% if messages %}
 
-                    {% for category, message in messages %}
+            {% for category, message in messages %}
 
-                        <div
-                            class="alert alert-{{ category }} alert-dismissible fade show"
-                            role="alert"
-                        >
-                            {{ message }}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
 
-                            <button
-                                type="button"
-                                class="btn-close"
-                                data-bs-dismiss="alert"
-                                aria-label="Cerrar"
-                            ></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
 
-                        </div>
+            </div>
 
-                    {% endfor %}
+            {% endfor %}
 
-                {% endif %}
+            {% endif %}
 
             {% endwith %}
 
@@ -57,32 +49,74 @@
 
                 <div class="card-body p-4">
 
-                    <form method="POST">
+                    <form method="POST" class="formulario-validacion" novalidate>
 
                         <!-- Token de protección CSRF -->
                         {{ form.hidden_tag() }}
 
 
+                        <!-- Datos personales del nuevo usuario -->
+                        <div class="mb-3">
+                            {{ form.nombres.label(class="form-label fw-bold") }}
+                            {{ form.nombres(class="form-control", placeholder="Ingrese sus nombres",
+                            data_validation="required,maxlength:100", data_validation_message="Ingresa tus nombres.") }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
+                            {% for error in form.nombres.errors %}<div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.apellidos.label(class="form-label fw-bold") }}
+                            {{ form.apellidos(class="form-control", placeholder="Ingrese sus apellidos",
+                            data_validation="required,maxlength:100", data_validation_message="Ingresa tus apellidos.")
+                            }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
+                            {% for error in form.apellidos.errors %}<div class="text-danger small mt-1">{{ error }}
+                            </div>{% endfor %}
+                        </div>
+
                         <!-- Nombre de usuario -->
                         <div class="mb-3">
 
                             {{ form.usuario.label(
-                                class="form-label fw-bold"
+                            class="form-label fw-bold"
                             ) }}
 
                             {{ form.usuario(
-                                class="form-control",
-                                placeholder="Cree un nombre de usuario"
+                            class="form-control",
+                            placeholder="Cree un nombre de usuario",
+                            data_validation="required,minlength:3,maxlength:50",
+                            data_validation_message="Ingresa un usuario de 3 a 50 caracteres."
                             ) }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
 
                             {% for error in form.usuario.errors %}
 
-                                <div class="text-danger small mt-1">
-                                    {{ error }}
-                                </div>
+                            <div class="text-danger small mt-1">
+                                {{ error }}
+                            </div>
 
                             {% endfor %}
 
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.correo.label(class="form-label fw-bold") }}
+                            {{ form.correo(class="form-control", type="email", placeholder="correo@ejemplo.com",
+                            data_validation="required,email,maxlength:120", data_validation_message="Ingresa un correo
+                            electrónico válido.") }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
+                            {% for error in form.correo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
+                            endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.telefono.label(class="form-label fw-bold") }}
+                            {{ form.telefono(class="form-control", placeholder="Ingrese su teléfono",
+                            data_validation="required,maxlength:30", data_validation_message="Ingresa tu teléfono.") }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
+                            {% for error in form.telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
                         </div>
 
 
@@ -90,34 +124,34 @@
                         <div class="mb-3">
 
                             {{ form.password.label(
-                                class="form-label fw-bold"
+                            class="form-label fw-bold"
                             ) }}
 
                             <div class="input-group">
 
                                 {{ form.password(
-                                    class="form-control",
-                                    id="passwordRegistro",
-                                    placeholder="Cree una contraseña"
+                                class="form-control",
+                                id="passwordRegistro",
+                                placeholder="Cree una contraseña",
+                                data_validation="required,minlength:8,maxlength:100",
+                                data_validation_message="La contraseña debe tener al menos 8 caracteres, una mayúscula,
+                                una minúscula, un número y uno de estos símbolos: @ # * !"
                                 ) }}
 
-                                <button
-                                    class="btn btn-outline-secondary"
-                                    type="button"
-                                    id="btnPasswordRegistro"
-                                    aria-label="Mostrar u ocultar contraseña"
-                                    title="Mostrar contraseña"
-                                >
+                                <button class="btn btn-outline-secondary" type="button" id="btnPasswordRegistro"
+                                    aria-label="Mostrar u ocultar contraseña" title="Mostrar contraseña">
                                     👁
                                 </button>
+
+                                <div class="invalid-feedback" data-validation-feedback></div>
 
                             </div>
 
                             {% for error in form.password.errors %}
 
-                                <div class="text-danger small mt-1">
-                                    {{ error }}
-                                </div>
+                            <div class="text-danger small mt-1">
+                                {{ error }}
+                            </div>
 
                             {% endfor %}
 
@@ -128,34 +162,34 @@
                         <div class="mb-3">
 
                             {{ form.confirmar_password.label(
-                                class="form-label fw-bold"
+                            class="form-label fw-bold"
                             ) }}
 
                             <div class="input-group">
 
                                 {{ form.confirmar_password(
-                                    class="form-control",
-                                    id="confirmarPassword",
-                                    placeholder="Repita la contraseña"
+                                class="form-control",
+                                id="confirmarPassword",
+                                placeholder="Repita la contraseña",
+                                data_validation="required,minlength:8",
+                                data_validation_message="La contraseña debe tener al menos 8 caracteres, una mayúscula,
+                                una minúscula, un número y uno de estos símbolos: @ # * !"
                                 ) }}
 
-                                <button
-                                    class="btn btn-outline-secondary"
-                                    type="button"
-                                    id="btnConfirmarPassword"
-                                    aria-label="Mostrar u ocultar contraseña"
-                                    title="Mostrar contraseña"
-                                >
+                                <button class="btn btn-outline-secondary" type="button" id="btnConfirmarPassword"
+                                    aria-label="Mostrar u ocultar contraseña" title="Mostrar contraseña">
                                     👁
                                 </button>
+
+                                <div class="invalid-feedback" data-validation-feedback></div>
 
                             </div>
 
                             {% for error in form.confirmar_password.errors %}
 
-                                <div class="text-danger small mt-1">
-                                    {{ error }}
-                                </div>
+                            <div class="text-danger small mt-1">
+                                {{ error }}
+                            </div>
 
                             {% endfor %}
 
@@ -166,7 +200,7 @@
                         <div class="d-grid mt-4">
 
                             {{ form.submit(
-                                class="btn btn-success"
+                            class="btn btn-success"
                             ) }}
 
                         </div>
@@ -252,6 +286,47 @@
                 "confirmarPassword",
                 "btnConfirmarPassword"
             );
+
+            // Complementa la validación visual común con el formato de correo.
+            const correo = document.getElementById("correo");
+            if (correo) {
+                const validarCorreo = function () {
+                    const esValido = correo.value.trim() !== "" && correo.validity.valid;
+                    correo.classList.toggle("is-invalid", !esValido);
+                    correo.classList.toggle("is-valid", esValido);
+                    correo.setAttribute("aria-invalid", String(!esValido));
+                };
+                correo.addEventListener("input", validarCorreo);
+                correo.addEventListener("change", validarCorreo);
+                correo.form.addEventListener("submit", validarCorreo);
+            }
+
+            const mensajePolitica = "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y uno de estos símbolos: @ # * !";
+            const password = document.getElementById("passwordRegistro");
+            const confirmacion = document.getElementById("confirmarPassword");
+
+            function validarPasswordRegistro() {
+                const cumplePolitica = password.value.length >= 8
+                    && /[A-Z]/.test(password.value)
+                    && /[a-z]/.test(password.value)
+                    && /\d/.test(password.value)
+                    && /[@#*!]/.test(password.value);
+                const coincide = confirmacion.value === password.value;
+                const esValida = cumplePolitica;
+                const feedbackPassword = password.parentElement.querySelector("[data-validation-feedback]");
+                const feedbackConfirmacion = confirmacion.parentElement.querySelector("[data-validation-feedback]");
+
+                password.classList.toggle("is-invalid", !esValida);
+                password.classList.toggle("is-valid", esValida);
+                confirmacion.classList.toggle("is-invalid", !coincide || !cumplePolitica);
+                confirmacion.classList.toggle("is-valid", coincide && cumplePolitica);
+                if (feedbackPassword) feedbackPassword.textContent = esValida ? "" : mensajePolitica;
+                if (feedbackConfirmacion) feedbackConfirmacion.textContent = coincide && cumplePolitica ? "" : (cumplePolitica ? "Las contraseñas no coinciden." : mensajePolitica);
+            }
+
+            password.addEventListener("input", validarPasswordRegistro);
+            confirmacion.addEventListener("input", validarPasswordRegistro);
+            password.form.addEventListener("submit", validarPasswordRegistro);
 
         }
     );

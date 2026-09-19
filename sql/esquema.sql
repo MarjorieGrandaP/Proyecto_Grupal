@@ -49,7 +49,106 @@ CREATE TABLE IF NOT EXISTS facturas (
 CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario SERIAL PRIMARY KEY,
     usuario VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL,
+    correo VARCHAR(120),
+    rol VARCHAR(10) NOT NULL DEFAULT 'cliente',
+    CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cliente')),
+    CONSTRAINT usuarios_correo_unique UNIQUE (correo)
+);
+
+-- Migración segura: los usuarios antiguos pueden conservar correo NULL.
+ALTER TABLE usuarios
+ADD COLUMN IF NOT EXISTS correo VARCHAR(120);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'usuarios_correo_unique'
+          AND conrelid = 'usuarios'::regclass
+    ) THEN
+        ALTER TABLE usuarios
+        ADD CONSTRAINT usuarios_correo_unique UNIQUE (correo);
+    END IF;
+END $$;
+
+-- Normalizar correos históricos antes de aplicar unicidad sin distinguir mayúsculas.
+-- Si existían duplicados por diferencias de formato, se conserva el primero y
+-- los demás quedan NULL para no eliminar usuarios ni inventar correos.
+WITH correos_repetidos AS (
+    SELECT id_usuario,
+           ROW_NUMBER() OVER (
+               PARTITION BY LOWER(BTRIM(correo))
+               ORDER BY id_usuario
+           ) AS posicion
+    FROM usuarios
+    WHERE correo IS NOT NULL
+)
+UPDATE usuarios u
+SET correo = NULL
+FROM correos_repetidos r
+WHERE u.id_usuario = r.id_usuario
+  AND r.posicion > 1;
+
+UPDATE usuarios
+SET correo = LOWER(BTRIM(correo))
+WHERE correo IS NOT NULL;
+
+-- PostgreSQL impide duplicados que difieran solo por mayúsculas/minúsculas.
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_correo_lower_unique
+    ON usuarios (LOWER(correo))
+    WHERE correo IS NOT NULL;
+
+-- Migración segura para instalaciones que ya tenían creada la tabla usuarios.
+-- Los usuarios existentes se conservan y reciben el rol cliente por defecto.
+ALTER TABLE usuarios
+ADD COLUMN IF NOT EXISTS rol VARCHAR(10);
+
+UPDATE usuarios
+SET rol = 'cliente'
+WHERE rol IS NULL OR rol NOT IN ('admin', 'cliente');
+
+ALTER TABLE usuarios
+ALTER COLUMN rol SET DEFAULT 'cliente',
+ALTER COLUMN rol SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'usuarios_rol_check'
+          AND conrelid = 'usuarios'::regclass
+    ) THEN
+        ALTER TABLE usuarios
+        ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin', 'cliente'));
+    END IF;
+END $$;
+
+-- 6. Perfil 1:1 de cada usuario. Los datos personales pueden quedar vacíos
+-- para usuarios antiguos hasta que completen su perfil.
+CREATE TABLE IF NOT EXISTS perfiles_usuario (
+    id_perfil SERIAL PRIMARY KEY,
+    id_usuario INTEGER UNIQUE NOT NULL,
+    nombres VARCHAR(100),
+    apellidos VARCHAR(100),
+    telefono VARCHAR(30),
+    imagen VARCHAR(255),
+    CONSTRAINT perfiles_usuario_usuario_fk
+        FOREIGN KEY (id_usuario)
+        REFERENCES usuarios(id_usuario)
+        ON DELETE CASCADE
+);
+
+-- Crear perfiles vacíos sin inventar datos para usuarios ya existentes.
+INSERT INTO perfiles_usuario (id_usuario)
+SELECT u.id_usuario
+FROM usuarios u
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM perfiles_usuario p
+    WHERE p.id_usuario = u.id_usuario
 );
 -- =========================================================
 -- INSERCIÓN DE DATOS INICIALES (SEMILLA)

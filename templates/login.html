@@ -23,28 +23,20 @@
             <!-- Mensajes generados desde Flask -->
             {% with messages = get_flashed_messages(with_categories=true) %}
 
-                {% if messages %}
+            {% if messages %}
 
-                    {% for category, message in messages %}
+            {% for category, message in messages %}
 
-                        <div
-                            class="alert alert-{{ category }} alert-dismissible fade show"
-                            role="alert"
-                        >
-                            {{ message }}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
 
-                            <button
-                                type="button"
-                                class="btn-close"
-                                data-bs-dismiss="alert"
-                                aria-label="Cerrar"
-                            ></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
 
-                        </div>
+            </div>
 
-                    {% endfor %}
+            {% endfor %}
 
-                {% endif %}
+            {% endif %}
 
             {% endwith %}
 
@@ -62,24 +54,25 @@
                         {{ form.hidden_tag() }}
 
 
-                        <!-- Nombre de usuario -->
+                        <!-- Usuario o correo electrónico -->
                         <div class="mb-3">
 
                             {{ form.usuario.label(
-                                class="form-label fw-bold"
+                            class="form-label fw-bold"
                             ) }}
 
                             {{ form.usuario(
-                                class="form-control",
-                                placeholder="Ingrese su usuario"
+                            class="form-control",
+                            placeholder="Ingrese su usuario o correo electrónico",
+                            autocomplete="username"
                             ) }}
 
                             <!-- Mostrar errores de validación -->
                             {% for error in form.usuario.errors %}
 
-                                <div class="text-danger small mt-1">
-                                    {{ error }}
-                                </div>
+                            <div class="text-danger small mt-1">
+                                {{ error }}
+                            </div>
 
                             {% endfor %}
 
@@ -90,7 +83,7 @@
                         <div class="mb-3">
 
                             {{ form.password.label(
-                                class="form-label fw-bold"
+                            class="form-label fw-bold"
                             ) }}
 
                             <div class="input-group">
@@ -101,22 +94,17 @@
                                     los caracteres se muestran ocultos.
                                 -->
                                 {{ form.password(
-                                    class="form-control",
-                                    id="passwordLogin",
-                                    placeholder="Ingrese su contraseña"
+                                class="form-control",
+                                id="passwordLogin",
+                                placeholder="Ingrese su contraseña"
                                 ) }}
 
                                 <!--
                                     Este botón permite alternar entre
                                     contraseña oculta y visible.
                                 -->
-                                <button
-                                    class="btn btn-outline-secondary"
-                                    type="button"
-                                    id="btnPasswordLogin"
-                                    aria-label="Mostrar u ocultar contraseña"
-                                    title="Mostrar contraseña"
-                                >
+                                <button class="btn btn-outline-secondary" type="button" id="btnPasswordLogin"
+                                    aria-label="Mostrar u ocultar contraseña" title="Mostrar contraseña">
                                     👁
                                 </button>
 
@@ -124,9 +112,9 @@
 
                             {% for error in form.password.errors %}
 
-                                <div class="text-danger small mt-1">
-                                    {{ error }}
-                                </div>
+                            <div class="text-danger small mt-1">
+                                {{ error }}
+                            </div>
 
                             {% endfor %}
 
@@ -137,7 +125,7 @@
                         <div class="d-grid mt-4">
 
                             {{ form.submit(
-                                class="btn btn-primary"
+                            class="btn btn-primary"
                             ) }}
 
                         </div>

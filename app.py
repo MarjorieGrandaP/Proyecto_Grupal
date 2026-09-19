@@ -1,4 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from functools import wraps
+
+from flask import Flask, abort, render_template, request, redirect, url_for, flash
 
 # Formularios utilizados por los módulos del sistema.
 # LoginForm y UsuarioForm se incorporan para la autenticación.
@@ -9,6 +11,8 @@ from forms import (
     FacturacionForm,
     LoginForm,
     UsuarioForm,
+    PerfilForm,
+    CambioPasswordForm,
 )
 
 # Funciones utilizadas para conectar Flask con PostgreSQL.
@@ -27,11 +31,13 @@ from flask_login import (
 # Werkzeug permite generar y comprobar el hash de las contraseñas.
 # La contraseña original nunca se almacenará en PostgreSQL.
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 # Modelo de usuario compatible con Flask-Login.
 from models import Usuario
 
 import os
+import uuid
 
 from dotenv import load_dotenv
 
@@ -84,6 +90,42 @@ TIPOS_ASISTENCIA = [
     "Mantenimiento Correctivo",
     "Instalación de Software",
 ]
+
+EXTENSIONES_PERFIL_PERMITIDAS = {"jpg", "jpeg", "png", "webp"}
+PERFILES_UPLOAD_FOLDER = os.path.join(
+    app.root_path,
+    "static",
+    "uploads",
+    "perfiles",
+)
+os.makedirs(PERFILES_UPLOAD_FOLDER, exist_ok=True)
+
+
+def imagen_perfil_url(nombre_imagen):
+    """Devuelve la ruta pública de una imagen de perfil si existe."""
+    return nombre_imagen
+
+
+def normalizar_correo(correo):
+    """Normaliza correos para guardar, buscar y comprobar duplicados."""
+    return correo.strip().lower() if correo else None
+
+
+def guardar_imagen_perfil(archivo):
+    """Valida y guarda una imagen de perfil, devolviendo solo su nombre seguro."""
+    if not archivo or not archivo.filename:
+        return None
+
+    nombre_seguro = secure_filename(archivo.filename)
+    extension = nombre_seguro.rsplit(".", 1)[-1].lower() if "." in nombre_seguro else ""
+
+    if not nombre_seguro or extension not in EXTENSIONES_PERFIL_PERMITIDAS:
+        raise ValueError("Solo se permiten imágenes JPG, JPEG, PNG o WEBP.")
+
+    nombre_final = f"perfil_{current_user.id}_{uuid.uuid4().hex}.{extension}"
+    archivo.save(os.path.join(PERFILES_UPLOAD_FOLDER, nombre_final))
+    return nombre_final
+
 
 # Inicializar PostgreSQL y cargar sql/esquema.sql
 try:
@@ -263,9 +305,11 @@ def load_user(user_id):
     # el usuario correspondiente al ID almacenado en la sesión.
     cursor.execute(
         """
-        SELECT id_usuario, usuario, password
-        FROM usuarios
-        WHERE id_usuario = %s
+         SELECT u.id_usuario, u.usuario, u.correo, u.password, u.rol,
+             p.imagen
+         FROM usuarios u
+         LEFT JOIN perfiles_usuario p ON p.id_usuario = u.id_usuario
+         WHERE u.id_usuario = %s
         """,
         (user_id,),
     )
@@ -283,6 +327,25 @@ def load_user(user_id):
 # ==========================================================
 # SISTEMA DE AUTENTICACIÓN
 # ==========================================================
+
+
+def admin_required(view):
+    """
+    Protege una ruta para que solo puedan utilizarla administradores.
+
+    Primero exige una sesión válida y después comprueba el rol cargado
+    desde PostgreSQL en current_user. Los clientes reciben una respuesta
+    403 aunque intenten escribir manualmente la URL administrativa.
+    """
+
+    @wraps(view)
+    @login_required
+    def wrapped_view(*args, **kwargs):
+        if current_user.rol != "admin":
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped_view
 
 
 @app.route("/registro", methods=["GET", "POST"])
@@ -303,61 +366,69 @@ def registro():
     form = UsuarioForm()
 
     if form.validate_on_submit():
-
+        correo_normalizado = normalizar_correo(form.correo.data)
         conn = obtener_conexion()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Comprobar si el nombre de usuario ya existe.
-        # Esto evita registros duplicados además de la
-        # restricción UNIQUE definida en PostgreSQL.
-        cursor.execute(
-            """
-            SELECT id_usuario
-            FROM usuarios
-            WHERE usuario = %s
-            """,
-            (form.usuario.data,),
-        )
+        try:
+            # Comprobar ambas unicidades antes del INSERT con parámetros seguros.
+            cursor.execute(
+                """
+                SELECT usuario, correo
+                FROM usuarios
+                WHERE usuario = %s OR correo = %s
+                """,
+                (form.usuario.data, correo_normalizado),
+            )
+            usuario_existente = cursor.fetchone()
 
-        usuario_existente = cursor.fetchone()
+            if usuario_existente:
+                if usuario_existente["usuario"] == form.usuario.data:
+                    flash("Ese nombre de usuario ya está registrado.", "danger")
+                else:
+                    flash("Ese correo electrónico ya está registrado.", "danger")
+                return render_template("registro.html", form=form, active="registro")
 
-        if usuario_existente:
+            password_hash = generate_password_hash(form.password.data)
+
+            # Usuario y perfil se crean en la misma transacción.
+            cursor.execute(
+                """
+                INSERT INTO usuarios (usuario, correo, password, rol)
+                VALUES (%s, %s, %s, 'cliente')
+                RETURNING id_usuario
+                """,
+                (form.usuario.data, correo_normalizado, password_hash),
+            )
+            id_usuario = cursor.fetchone()["id_usuario"]
+
+            cursor.execute(
+                """
+                INSERT INTO perfiles_usuario (id_usuario, nombres, apellidos, telefono)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    id_usuario,
+                    form.nombres.data,
+                    form.apellidos.data,
+                    form.telefono.data,
+                ),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            flash(
+                "No fue posible completar el registro. Inténtalo nuevamente.", "danger"
+            )
+            return render_template("registro.html", form=form, active="registro")
+        finally:
             cursor.close()
             conn.close()
 
-            flash("Ese nombre de usuario ya está registrado.", "danger")
-
-            return render_template("registro.html", form=form, active="registro")
-
-        # La contraseña escrita por el usuario se transforma
-        # en un hash seguro antes de almacenarse.
-        #
-        # Por ejemplo:
-        # PcFix2026  ->  scrypt:32768:8:1$...
-        #
-        # La contraseña original NO se guarda en PostgreSQL.
-        password_hash = generate_password_hash(form.password.data)
-
-        # Registro mediante consulta parametrizada.
-        # Los parámetros %s evitan concatenar directamente
-        # los valores recibidos desde el formulario.
-        cursor.execute(
-            """
-            INSERT INTO usuarios (usuario, password)
-            VALUES (%s, %s)
-            """,
-            (form.usuario.data, password_hash),
-        )
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
         flash(
-            "Usuario registrado correctamente. " "Ahora puedes iniciar sesión.",
+            "Usuario registrado correctamente. Ahora puedes iniciar sesión.",
             "success",
         )
-
         return redirect(url_for("login"))
 
     return render_template("registro.html", form=form, active="registro")
@@ -384,15 +455,21 @@ def login():
 
         conn = obtener_conexion()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
+        identificador = form.usuario.data.strip()
+        correo_login = (
+            normalizar_correo(identificador) if "@" in identificador else None
+        )
 
         # Buscar únicamente al usuario indicado.
         cursor.execute(
             """
-            SELECT id_usuario, usuario, password
-            FROM usuarios
-            WHERE usuario = %s
+                 SELECT u.id_usuario, u.usuario, u.correo, u.password, u.rol,
+                     p.imagen
+                 FROM usuarios u
+                 LEFT JOIN perfiles_usuario p ON p.id_usuario = u.id_usuario
+                 WHERE u.usuario = %s OR u.correo = %s
             """,
-            (form.usuario.data,),
+            (identificador, correo_login),
         )
 
         fila = cursor.fetchone()
@@ -419,9 +496,146 @@ def login():
 
         # Si el usuario no existe o la contraseña es incorrecta,
         # no se inicia ninguna sesión.
-        flash("Usuario o contraseña incorrectos.", "danger")
+        flash("Usuario, correo o contraseña incorrectos.", "danger")
 
     return render_template("login.html", form=form, active="login")
+
+
+@app.route("/perfil", methods=["GET", "POST"])
+@login_required
+def perfil():
+    """Muestra y actualiza el perfil del usuario autenticado."""
+    form = PerfilForm()
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute(
+        """
+        SELECT u.id_usuario, u.usuario, u.correo, u.rol,
+               p.nombres, p.apellidos, p.telefono, p.imagen
+        FROM usuarios u
+        LEFT JOIN perfiles_usuario p ON p.id_usuario = u.id_usuario
+        WHERE u.id_usuario = %s
+        """,
+        (current_user.id,),
+    )
+    perfil_actual = cursor.fetchone()
+
+    if not perfil_actual:
+        cursor.close()
+        conn.close()
+        abort(404)
+
+    if request.method == "GET":
+        form.nombres.data = perfil_actual["nombres"] or ""
+        form.apellidos.data = perfil_actual["apellidos"] or ""
+        form.correo.data = perfil_actual["correo"] or ""
+        form.telefono.data = perfil_actual["telefono"] or ""
+
+    if form.validate_on_submit():
+        correo = normalizar_correo(form.correo.data)
+        cursor.execute(
+            """
+            SELECT id_usuario
+            FROM usuarios
+            WHERE correo = %s AND id_usuario <> %s
+            """,
+            (correo, current_user.id),
+        )
+        correo_existente = cursor.fetchone() if correo else None
+
+        if correo_existente:
+            flash(
+                "Ese correo electrónico ya está utilizado por otro usuario.", "danger"
+            )
+        else:
+            try:
+                imagen_nueva = guardar_imagen_perfil(form.imagen.data)
+                cursor.execute(
+                    """
+                    UPDATE usuarios
+                    SET correo = %s
+                    WHERE id_usuario = %s
+                    """,
+                    (correo, current_user.id),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO perfiles_usuario (id_usuario, nombres, apellidos, telefono, imagen)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (id_usuario) DO UPDATE SET
+                        nombres = EXCLUDED.nombres,
+                        apellidos = EXCLUDED.apellidos,
+                        telefono = EXCLUDED.telefono,
+                        imagen = COALESCE(EXCLUDED.imagen, perfiles_usuario.imagen)
+                    """,
+                    (
+                        current_user.id,
+                        form.nombres.data,
+                        form.apellidos.data,
+                        form.telefono.data,
+                        imagen_nueva,
+                    ),
+                )
+                conn.commit()
+                current_user.correo = correo
+                if imagen_nueva:
+                    current_user.imagen = imagen_nueva
+                flash("Perfil actualizado correctamente.", "success")
+                return redirect(url_for("perfil"))
+            except ValueError as error:
+                conn.rollback()
+                flash(str(error), "danger")
+            except Exception:
+                conn.rollback()
+                flash("No fue posible actualizar el perfil.", "danger")
+
+    cursor.close()
+    conn.close()
+    return render_template(
+        "perfil.html",
+        form=form,
+        perfil=perfil_actual,
+        imagen_perfil=imagen_perfil_url(perfil_actual["imagen"]),
+        active="perfil",
+    )
+
+
+@app.route("/cambiar-password", methods=["GET", "POST"])
+@login_required
+def cambiar_password():
+    """Permite cambiar la contraseña verificando primero la actual."""
+    form = CambioPasswordForm()
+
+    if form.validate_on_submit():
+        if not check_password_hash(current_user.password, form.password_actual.data):
+            flash("La contraseña actual no es correcta.", "danger")
+            return render_template("cambiar_password.html", form=form, active="perfil")
+
+        nuevo_hash = generate_password_hash(form.password_nueva.data)
+        conn = obtener_conexion()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                UPDATE usuarios
+                SET password = %s
+                WHERE id_usuario = %s
+                """,
+                (nuevo_hash, current_user.id),
+            )
+            conn.commit()
+            current_user.password = nuevo_hash
+            flash("Contraseña actualizada correctamente.", "success")
+            return redirect(url_for("perfil"))
+        except Exception:
+            conn.rollback()
+            flash("No fue posible actualizar la contraseña.", "danger")
+        finally:
+            cursor.close()
+            conn.close()
+
+    return render_template("cambiar_password.html", form=form, active="perfil")
 
 
 @app.route("/dashboard")
@@ -499,7 +713,7 @@ def servicios():
 
 @app.route("/servicios/nuevo", methods=["GET", "POST"])
 @app.route("/productos/nuevo", methods=["GET", "POST"])
-@login_required
+@admin_required
 def nuevo_servicio():
     """Registrar un nuevo registro mediante INSERT INTO parametrizado."""
     form = ProductoForm()
@@ -547,7 +761,7 @@ def nuevo_servicio():
 
 @app.route("/servicios/editar/<int:id>", methods=["GET", "POST"])
 @app.route("/productos/editar/<int:id>", methods=["GET", "POST"])
-@login_required
+@admin_required
 def editar_servicio(id):
     """Modificar un registro existente utilizando WHERE y UPDATE parametrizado."""
     conn = obtener_conexion()
@@ -618,7 +832,7 @@ def editar_servicio(id):
 
 @app.route("/servicios/eliminar/<int:id>", methods=["POST"])
 @app.route("/productos/eliminar/<int:id>", methods=["POST"])
-@login_required
+@admin_required
 def eliminar_servicio(id):
     """Eliminar únicamente el registro seleccionado utilizando DELETE FROM ... WHERE."""
     conn = obtener_conexion()
@@ -635,13 +849,13 @@ def eliminar_servicio(id):
 
 
 @app.route("/clientes")
-@login_required
+@admin_required
 def clientes():
     return render_template("clientes.html", active="clientes", clientes=CLIENTES)
 
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
-@login_required
+@admin_required
 def nuevo_cliente():
     form = ClienteForm()
     if form.validate_on_submit():
@@ -660,7 +874,7 @@ def nuevo_cliente():
 
 
 @app.route("/proveedores")
-@login_required
+@admin_required
 def proveedores():
     return render_template(
         "proveedores.html", active="proveedores", proveedores=PROVEEDORES
@@ -668,7 +882,7 @@ def proveedores():
 
 
 @app.route("/proveedores/nuevo", methods=["GET", "POST"])
-@login_required
+@admin_required
 def nuevo_proveedor():
     form = ProveedorForm()
     if form.validate_on_submit():
@@ -690,13 +904,13 @@ def nuevo_proveedor():
 
 
 @app.route("/facturacion")
-@login_required
+@admin_required
 def facturacion():
     return render_template("facturacion.html", active="facturacion", facturas=FACTURAS)
 
 
 @app.route("/facturacion/nuevo", methods=["GET", "POST"])
-@login_required
+@admin_required
 def nueva_factura():
     form = FacturacionForm()
     if form.validate_on_submit():

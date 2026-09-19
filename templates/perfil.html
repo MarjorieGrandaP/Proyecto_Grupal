@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Mi perfil{% endblock %}
+
+{% block content %}
+<section class="seccion-contenido my-4">
+    <div class="row g-4 align-items-start">
+        <div class="col-md-4 text-center">
+            {% if perfil.imagen %}
+            <img src="{{ url_for('static', filename='uploads/perfiles/' + perfil.imagen) }}" alt="Foto de perfil"
+                class="rounded-circle img-fluid shadow-sm" style="width: 180px; height: 180px; object-fit: cover;">
+            {% else %}
+            <div class="rounded-circle bg-light border d-inline-flex align-items-center justify-content-center shadow-sm"
+                role="img" aria-label="Avatar predeterminado" style="width: 180px; height: 180px; font-size: 5rem;">
+                &#128100;</div>
+            {% endif %}
+            <h2 class="h4 mt-3">Mi perfil</h2>
+            <span class="badge bg-secondary">Rol: {{ perfil.rol }}</span>
+            <p class="text-muted mt-3">{{ perfil.usuario }}</p>
+        </div>
+
+        <div class="col-md-8">
+            <h2 class="titulo-seccion">Datos personales</h2>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" enctype="multipart/form-data" class="formulario-validacion" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        {{ form.nombres.label(class="form-label fw-bold") }}
+                        {{ form.nombres(class="form-control", data_validation="required,maxlength:100",
+                        data_validation_message="Ingresa tus nombres.") }}
+                        <div class="invalid-feedback" data-validation-feedback></div>
+                        {% for error in form.nombres.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
+                        endfor %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        {{ form.apellidos.label(class="form-label fw-bold") }}
+                        {{ form.apellidos(class="form-control", data_validation="required,maxlength:100",
+                        data_validation_message="Ingresa tus apellidos.") }}
+                        <div class="invalid-feedback" data-validation-feedback></div>
+                        {% for error in form.apellidos.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
+                        endfor %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    {{ form.correo.label(class="form-label fw-bold") }}
+                    {{ form.correo(class="form-control", type="email", data_validation="optional,email,maxlength:120",
+                    data_validation_message="Ingresa un correo electrónico válido.") }}
+                    <div class="invalid-feedback" data-validation-feedback></div>
+                    {% for error in form.correo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor
+                    %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.telefono.label(class="form-label fw-bold") }}
+                    {{ form.telefono(class="form-control", data_validation="optional,maxlength:30",
+                    data_validation_message="Ingresa un teléfono válido.") }}
+                    <div class="invalid-feedback" data-validation-feedback></div>
+                    {% for error in form.telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
+                    endfor %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.imagen.label(class="form-label fw-bold") }}
+                    {{ form.imagen(class="form-control", accept=".jpg,.jpeg,.png,.webp") }}
+                    <div class="form-text">Formatos permitidos: JPG, JPEG, PNG y WEBP.</div>
+                    {% for error in form.imagen.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor
+                    %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    {{ form.submit(class="btn btn-primary") }}
+                    <a href="{{ url_for('cambiar_password') }}" class="btn btn-outline-secondary">Cambiar contraseña</a>
+                </div>
+            </form>
+
+            <div class="mt-4 p-3 bg-light border rounded">
+                <strong>Usuario:</strong> {{ perfil.usuario }}<br>
+                <strong>Rol:</strong> {{ perfil.rol }}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const correo = document.getElementById("correo");
+        if (!correo) return;
+        const validarCorreo = function () {
+            const esValido = correo.value.trim() === "" || correo.validity.valid;
+            correo.classList.toggle("is-invalid", !esValido);
+            correo.classList.toggle("is-valid", esValido && correo.value.trim() !== "");
+            correo.setAttribute("aria-invalid", String(!esValido));
+        };
+        correo.addEventListener("input", validarCorreo);
+        correo.addEventListener("change", validarCorreo);
+        correo.form.addEventListener("submit", validarCorreo);
+    });
+</script>
+{% endblock %}
