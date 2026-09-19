@@ -9,39 +9,50 @@
             <h2 class="titulo-seccion text-center mb-4">{{ titulo }}</h2>
             <div class="card shadow-sm">
                 <div class="card-body p-4">
-                    <form method="POST" action="">
+                    <form method="POST" action="" class="formulario-validacion" novalidate>
                         {{ form.hidden_tag() }}
-                        
+
                         <div class="mb-3">
                             {{ form.nombre.label(class="form-label fw-bold") }}
-                            {{ form.nombre(class="form-control") }}
+                            {{ form.nombre(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.nombre.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.telefono.label(class="form-label fw-bold") }}
-                            {{ form.telefono(class="form-control") }}
+                            {{ form.telefono(class="form-control", minlength="9", maxlength="15", required=true,
+                            data_validation="required,minlength:9,maxlength:15", data_validation_message="Es obligatorio
+                            y debe tener entre 9 y 15 caracteres.") }}
                             {% for error in form.telefono.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.equipo.label(class="form-label fw-bold") }}
-                            {{ form.equipo(class="form-control") }}
+                            {{ form.equipo(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.equipo.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.estado.label(class="form-label fw-bold") }}
-                            {{ form.estado(class="form-select") }}
+                            {{ form.estado(class="form-select", required=true, data_validation="required",
+                            data_validation_message="Debes seleccionar un estado.") }}
                             {% for error in form.estado.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">

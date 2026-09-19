@@ -27,14 +27,8 @@ class ProductoForm(FlaskForm):
     nombre = StringField(
         "Nombre del Servicio",
         validators=[
-            DataRequired(
-                message="El nombre es obligatorio."
-            ),
-            Length(
-                min=3,
-                max=100,
-                message="Debe tener entre 3 y 100 caracteres."
-            ),
+            DataRequired(message="El nombre es obligatorio."),
+            Length(min=3, max=100, message="Debe tener entre 3 y 100 caracteres."),
         ],
     )
 
@@ -45,14 +39,8 @@ class ProductoForm(FlaskForm):
     descripcion = StringField(
         "Descripción",
         validators=[
-            DataRequired(
-                message="La descripción es obligatoria."
-            ),
-            Length(
-                min=10,
-                max=255,
-                message="Debe tener entre 10 y 255 caracteres."
-            ),
+            DataRequired(message="La descripción es obligatoria."),
+            Length(min=10, max=255, message="Debe tener entre 10 y 255 caracteres."),
         ],
     )
 
@@ -66,13 +54,8 @@ class ProductoForm(FlaskForm):
     precio = FloatField(
         "Precio ($)",
         validators=[
-            InputRequired(
-                message="El precio es obligatorio."
-            ),
-            NumberRange(
-                min=0.01,
-                message="El precio debe ser mayor a 0."
-            ),
+            InputRequired(message="El precio es obligatorio."),
+            NumberRange(min=0.01, message="El precio debe ser mayor a 0."),
         ],
     )
 
@@ -90,19 +73,14 @@ class ProductoForm(FlaskForm):
     duracion = StringField(
         "Duración",
         validators=[
-            DataRequired(
-                message="La duración es obligatoria."
-            ),
+            DataRequired(message="La duración es obligatoria."),
             Length(
                 max=50,
-                message=(
-                    "La duración no puede superar "
-                    "los 50 caracteres."
-                ),
+                message=("La duración no puede superar " "los 50 caracteres."),
             ),
             Regexp(
                 (
-                    r"^(Variable|"
+                    r"(?i)^(Variable|"
                     r"[0-9]+([.,][0-9]+)? "
                     r"(minuto|minutos|hora|horas))$"
                 ),
@@ -117,35 +95,12 @@ class ProductoForm(FlaskForm):
     # ======================================================
     # IMAGEN DEL SERVICIO
     # ======================================================
-    # Se utiliza SelectField en lugar de permitir que el
-    # usuario escriba cualquier nombre de archivo.
-    #
-    # Así evitamos guardar imágenes inexistentes.
+    # Las opciones se cargarán dinámicamente desde app.py
+    # leyendo los archivos disponibles en static/img.
     imagen = SelectField(
         "Imagen del servicio",
-        choices=[
-            (
-                "servicio-1.jpg",
-                "servicio-1.jpg",
-            ),
-            (
-                "servicio-2.jpg",
-                "servicio-2.jpg",
-            ),
-            (
-                "servicio-3.jpg",
-                "servicio-3.jpg",
-            ),
-            (
-                "servicio-4.jpg",
-                "servicio-4.jpg",
-            ),
-        ],
-        validators=[
-            DataRequired(
-                message="Debe seleccionar una imagen."
-            )
-        ],
+        choices=[],
+        validators=[DataRequired(message="Debe seleccionar una imagen.")],
     )
 
     # ======================================================
@@ -158,14 +113,10 @@ class ProductoForm(FlaskForm):
     id_proveedor = SelectField(
         "Proveedor Asociado",
         coerce=int,
-        validators=[
-            Optional()
-        ],
+        validators=[Optional()],
     )
 
     # ======================================================
     # BOTÓN DEL FORMULARIO
     # ======================================================
-    submit = SubmitField(
-        "Guardar"
-    )
+    submit = SubmitField("Guardar")

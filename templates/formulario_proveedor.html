@@ -9,39 +9,51 @@
             <h2 class="titulo-seccion text-center mb-4">{{ titulo }}</h2>
             <div class="card shadow-sm">
                 <div class="card-body p-4">
-                    <form method="POST" action="">
+                    <form method="POST" action="" class="formulario-validacion" novalidate>
                         {{ form.hidden_tag() }}
-                        
+
                         <div class="mb-3">
                             {{ form.empresa.label(class="form-label fw-bold") }}
-                            {{ form.empresa(class="form-control") }}
+                            {{ form.empresa(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatoria y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.empresa.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.contacto.label(class="form-label fw-bold") }}
-                            {{ form.contacto(class="form-control") }}
+                            {{ form.contacto(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.contacto.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.telefono.label(class="form-label fw-bold") }}
-                            {{ form.telefono(class="form-control") }}
+                            {{ form.telefono(class="form-control", minlength="9", maxlength="15", required=true,
+                            data_validation="required,minlength:9,maxlength:15", data_validation_message="Es obligatorio
+                            y debe tener entre 9 y 15 caracteres.") }}
                             {% for error in form.telefono.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.categoria.label(class="form-label fw-bold") }}
-                            {{ form.categoria(class="form-control") }}
+                            {{ form.categoria(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatoria y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.categoria.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">

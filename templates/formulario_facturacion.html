@@ -9,55 +9,72 @@
             <h2 class="titulo-seccion text-center mb-4">{{ titulo }}</h2>
             <div class="card shadow-sm">
                 <div class="card-body p-4">
-                    <form method="POST" action="">
+                    <form method="POST" action="" class="formulario-validacion" novalidate>
                         {{ form.hidden_tag() }}
-                        
+
                         <div class="mb-3">
                             {{ form.numero.label(class="form-label fw-bold") }}
-                            {{ form.numero(class="form-control") }}
+                            {{ form.numero(class="form-control", minlength="3", maxlength="20", required=true,
+                            data_validation="required,minlength:3,maxlength:20", data_validation_message="Es obligatorio
+                            y debe tener entre 3 y 20 caracteres.") }}
                             {% for error in form.numero.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.cliente.label(class="form-label fw-bold") }}
-                            {{ form.cliente(class="form-control") }}
+                            {{ form.cliente(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.cliente.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.servicio.label(class="form-label fw-bold") }}
-                            {{ form.servicio(class="form-control") }}
+                            {{ form.servicio(class="form-control", minlength="3", maxlength="100", required=true,
+                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
+                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
                             {% for error in form.servicio.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.fecha.label(class="form-label fw-bold") }}
-                            {{ form.fecha(class="form-control", type="date") }}
+                            {{ form.fecha(class="form-control", type="date", required=true,
+                            data_validation="required,date", data_validation_message="Es obligatoria y debe tener una
+                            fecha válida.") }}
                             {% for error in form.fecha.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.total.label(class="form-label fw-bold") }}
-                            {{ form.total(class="form-control") }}
+                            {{ form.total(class="form-control", type="number", min="0", step="0.01", required=true,
+                            data_validation="required,min:0", data_validation_message="Es obligatorio y debe ser mayor o
+                            igual que 0.") }}
                             {% for error in form.total.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.estado.label(class="form-label fw-bold") }}
-                            {{ form.estado(class="form-select") }}
+                            {{ form.estado(class="form-select", required=true, data_validation="required",
+                            data_validation_message="Debes seleccionar un estado.") }}
                             {% for error in form.estado.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">

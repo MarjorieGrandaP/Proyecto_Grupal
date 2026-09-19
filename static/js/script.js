@@ -543,3 +543,113 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
 });
+
+/*
+ * =========================================================
+ * VALIDACIÓN INTERACTIVA DE FORMULARIOS Flask-WTF
+ * =========================================================
+ *
+ * Esta capa orienta al usuario mientras escribe. El envío no
+ * se cancela: Flask-WTF conserva la validación definitiva en el
+ * servidor y muestra sus errores después de recibir la petición.
+ */
+document.addEventListener("DOMContentLoaded", function () {
+    const formularios = document.querySelectorAll(
+        ".formulario-validacion"
+    );
+
+    formularios.forEach(function (formulario) {
+        const campos = formulario.querySelectorAll(
+            "[data-validation]"
+        );
+
+        function validarCampo(campo) {
+            const reglas = campo.dataset.validation.split(",");
+            const valor = campo.value.trim();
+            let esValido = true;
+
+            if (reglas.includes("optional") && valor === "") {
+                campo.classList.remove("is-invalid", "is-valid");
+                campo.removeAttribute("aria-invalid");
+                return true;
+            }
+
+            reglas.forEach(function (regla) {
+                const partes = regla.split(":");
+                const nombreRegla = partes[0];
+                const limite = Number(partes[1]);
+
+                if (nombreRegla === "required" && valor === "") {
+                    esValido = false;
+                }
+
+                if (
+                    nombreRegla === "minlength" &&
+                    valor.length < limite
+                ) {
+                    esValido = false;
+                }
+
+                if (
+                    nombreRegla === "maxlength" &&
+                    valor.length > limite
+                ) {
+                    esValido = false;
+                }
+
+                if (
+                    nombreRegla === "min" &&
+                    (valor === "" || !Number.isFinite(Number(valor)) || Number(valor) < limite)
+                ) {
+                    esValido = false;
+                }
+
+                if (
+                    nombreRegla === "duration" &&
+                    !/^(Variable|[0-9]+([.,][0-9]+)? (minuto|minutos|hora|horas))$/i.test(valor)
+                ) {
+                    esValido = false;
+                }
+
+                if (
+                    nombreRegla === "date" &&
+                    (valor === "" || campo.validity.badInput)
+                ) {
+                    esValido = false;
+                }
+            });
+
+            const mensaje = campo.parentElement.querySelector(
+                "[data-validation-feedback]"
+            );
+
+            campo.classList.toggle("is-invalid", !esValido);
+            campo.classList.toggle("is-valid", esValido);
+            campo.setAttribute("aria-invalid", String(!esValido));
+
+            if (mensaje) {
+                mensaje.textContent = esValido
+                    ? ""
+                    : campo.dataset.validationMessage;
+            }
+
+            return esValido;
+        }
+
+        campos.forEach(function (campo) {
+            campo.addEventListener("input", function () {
+                validarCampo(campo);
+            });
+
+            campo.addEventListener("change", function () {
+                validarCampo(campo);
+            });
+        });
+
+        formulario.addEventListener("submit", function () {
+            campos.forEach(function (campo) {
+                validarCampo(campo);
+            });
+        });
+    });
+});
