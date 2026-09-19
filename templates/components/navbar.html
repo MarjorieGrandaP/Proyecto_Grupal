@@ -118,7 +118,8 @@
                     <button class="nav-link btn nav-btn text-white dropdown-toggle" type="button"
                         data-bs-toggle="dropdown" aria-expanded="false" style="{% if active == 'clientes'
                                 or active == 'proveedores'
-                                or active == 'facturacion' %}
+                                or active == 'facturacion'
+                                or active == 'auditoria' %}
                                 background-color: #d4af37;
                                 color: #112248;
                                 font-weight: bold;
@@ -149,6 +150,12 @@
                         <li>
                             <a class="dropdown-item" href="{{ url_for('facturacion') }}">
                                 Facturación
+                            </a>
+                        </li>
+
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('auditoria') }}">
+                                Auditoría
                             </a>
                         </li>
 

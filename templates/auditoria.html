@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Auditoría{% endblock %}
+
+{% block content %}
+<section class="seccion-contenido my-4">
+    <h2 class="titulo-seccion text-center">Auditoría de base de datos</h2>
+    <p class="text-muted text-center">Historial de operaciones registradas por PostgreSQL.</p>
+
+    <form method="GET" class="row g-3 align-items-end mb-4">
+        <div class="col-md-4">
+            <label for="tabla" class="form-label fw-bold">Tabla</label>
+            <select id="tabla" name="tabla" class="form-select">
+                <option value="">Todas</option>
+                {% for opcion in ['usuarios', 'perfiles_usuario', 'servicios', 'pedidos', 'facturas', 'clientes',
+                'proveedores'] %}
+                <option value="{{ opcion }}" {% if tabla==opcion %}selected{% endif %}>{{ opcion }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="operacion" class="form-label fw-bold">Operación</label>
+            <select id="operacion" name="operacion" class="form-select">
+                <option value="">Todas</option>
+                {% for opcion in ['INSERT', 'UPDATE', 'DELETE'] %}
+                <option value="{{ opcion }}" {% if operacion==opcion %}selected{% endif %}>{{ opcion }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="fecha" class="form-label fw-bold">Fecha</label>
+            <input id="fecha" name="fecha" type="date" class="form-control" value="{{ fecha }}">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="table-responsive shadow-sm rounded border">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha y hora</th>
+                    <th>Tabla</th>
+                    <th>Operación</th>
+                    <th>ID registro</th>
+                    <th>Usuario BD</th>
+                    <th>Resumen de cambios</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for registro in registros %}
+                <tr>
+                    <td>{{ registro.id_auditoria }}</td>
+                    <td>{{ registro.fecha_hora }}</td>
+                    <td>{{ registro.tabla }}</td>
+                    <td><span
+                            class="badge {% if registro.operacion == 'INSERT' %}bg-success{% elif registro.operacion == 'UPDATE' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{
+                            registro.operacion }}</span></td>
+                    <td>{{ registro.id_registro or 'No disponible' }}</td>
+                    <td>{{ registro.usuario_bd }}</td>
+                    <td class="small">
+                        {% if registro.datos_anteriores %}<strong>Antes:</strong> {{ registro.datos_anteriores }}<br>{%
+                        endif %}
+                        {% if registro.datos_nuevos %}<strong>Después:</strong> {{ registro.datos_nuevos }}{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No hay operaciones para los filtros
+                        seleccionados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

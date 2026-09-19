@@ -228,6 +228,106 @@ WHERE NOT EXISTS (
     FROM perfiles_usuario p
     WHERE p.id_usuario = u.id_usuario
 );
+
+-- 8. Auditoría de cambios de datos.
+CREATE TABLE IF NOT EXISTS auditoria (
+    id_auditoria SERIAL PRIMARY KEY,
+    tabla VARCHAR(50) NOT NULL,
+    operacion VARCHAR(10) NOT NULL,
+    id_registro VARCHAR(100),
+    datos_anteriores JSONB,
+    datos_nuevos JSONB,
+    usuario_bd VARCHAR(100),
+    fecha_hora TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT auditoria_operacion_check CHECK (operacion IN ('INSERT', 'UPDATE', 'DELETE'))
+);
+
+CREATE OR REPLACE FUNCTION registrar_auditoria()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    datos_anteriores_json JSONB;
+    datos_nuevos_json JSONB;
+    registro_id VARCHAR(100);
+BEGIN
+    IF TG_OP = 'UPDATE' AND to_jsonb(OLD) = to_jsonb(NEW) THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+        datos_anteriores_json := to_jsonb(OLD);
+    END IF;
+
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        datos_nuevos_json := to_jsonb(NEW);
+    END IF;
+
+    -- Nunca conservar contraseñas, aunque estén almacenadas como hash.
+    IF TG_TABLE_NAME = 'usuarios' THEN
+        datos_anteriores_json := datos_anteriores_json - 'password';
+        datos_nuevos_json := datos_nuevos_json - 'password';
+    END IF;
+
+    registro_id := CASE TG_TABLE_NAME
+        WHEN 'usuarios' THEN COALESCE(datos_nuevos_json->>'id_usuario', datos_anteriores_json->>'id_usuario')
+        WHEN 'perfiles_usuario' THEN COALESCE(datos_nuevos_json->>'id_perfil', datos_anteriores_json->>'id_perfil')
+        WHEN 'servicios' THEN COALESCE(datos_nuevos_json->>'id_servicio', datos_anteriores_json->>'id_servicio')
+        WHEN 'pedidos' THEN COALESCE(datos_nuevos_json->>'id_pedido', datos_anteriores_json->>'id_pedido')
+        WHEN 'facturas' THEN COALESCE(datos_nuevos_json->>'id_factura', datos_anteriores_json->>'id_factura')
+        WHEN 'clientes' THEN COALESCE(datos_nuevos_json->>'id_cliente', datos_anteriores_json->>'id_cliente')
+        WHEN 'proveedores' THEN COALESCE(datos_nuevos_json->>'id_proveedor', datos_anteriores_json->>'id_proveedor')
+        ELSE NULL
+    END;
+
+    INSERT INTO auditoria (
+        tabla, operacion, id_registro, datos_anteriores,
+        datos_nuevos, usuario_bd, fecha_hora
+    )
+    VALUES (
+        TG_TABLE_NAME, TG_OP, registro_id, datos_anteriores_json,
+        datos_nuevos_json, CURRENT_USER, CURRENT_TIMESTAMP
+    );
+
+    RETURN NULL;
+END;
+$$;
+
+-- Triggers idempotentes: solo se reemplazan triggers, nunca datos de negocio.
+DROP TRIGGER IF EXISTS auditoria_usuarios ON usuarios;
+CREATE TRIGGER auditoria_usuarios
+AFTER INSERT OR UPDATE OR DELETE ON usuarios
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_perfiles_usuario ON perfiles_usuario;
+CREATE TRIGGER auditoria_perfiles_usuario
+AFTER INSERT OR UPDATE OR DELETE ON perfiles_usuario
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_servicios ON servicios;
+CREATE TRIGGER auditoria_servicios
+AFTER INSERT OR UPDATE OR DELETE ON servicios
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_pedidos ON pedidos;
+CREATE TRIGGER auditoria_pedidos
+AFTER INSERT OR UPDATE OR DELETE ON pedidos
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_facturas ON facturas;
+CREATE TRIGGER auditoria_facturas
+AFTER INSERT OR UPDATE OR DELETE ON facturas
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_clientes ON clientes;
+CREATE TRIGGER auditoria_clientes
+AFTER INSERT OR UPDATE OR DELETE ON clientes
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
+
+DROP TRIGGER IF EXISTS auditoria_proveedores ON proveedores;
+CREATE TRIGGER auditoria_proveedores
+AFTER INSERT OR UPDATE OR DELETE ON proveedores
+FOR EACH ROW EXECUTE FUNCTION registrar_auditoria();
 -- =========================================================
 -- INSERCIÓN DE DATOS INICIALES (SEMILLA)
 -- =========================================================

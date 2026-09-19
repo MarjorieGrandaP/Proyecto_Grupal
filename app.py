@@ -916,6 +916,69 @@ def pedidos_admin():
     )
 
 
+@app.route("/auditoria")
+@admin_required
+def auditoria():
+    """Consulta el historial de cambios registrado por los triggers PostgreSQL."""
+    tabla = request.args.get("tabla", "").strip()
+    operacion = request.args.get("operacion", "").strip().upper()
+    fecha = request.args.get("fecha", "").strip()
+
+    tablas_permitidas = {
+        "usuarios",
+        "perfiles_usuario",
+        "servicios",
+        "pedidos",
+        "facturas",
+        "clientes",
+        "proveedores",
+    }
+    operaciones_permitidas = {"INSERT", "UPDATE", "DELETE"}
+
+    condiciones = []
+    parametros = []
+    if tabla in tablas_permitidas:
+        condiciones.append("tabla = %s")
+        parametros.append(tabla)
+    else:
+        tabla = ""
+
+    if operacion in operaciones_permitidas:
+        condiciones.append("operacion = %s")
+        parametros.append(operacion)
+    else:
+        operacion = ""
+
+    if fecha:
+        condiciones.append("fecha_hora::date = %s")
+        parametros.append(fecha)
+
+    consulta = """
+        SELECT id_auditoria, fecha_hora, tabla, operacion, id_registro,
+               usuario_bd, datos_anteriores, datos_nuevos
+        FROM auditoria
+    """
+    if condiciones:
+        consulta += " WHERE " + " AND ".join(condiciones)
+    consulta += " ORDER BY fecha_hora DESC"
+
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(consulta, tuple(parametros))
+    registros = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template(
+        "auditoria.html",
+        registros=registros,
+        tabla=tabla,
+        operacion=operacion,
+        fecha=fecha,
+        active="auditoria",
+    )
+
+
 @app.route("/pedidos/<int:id>/estado", methods=["POST"])
 @admin_required
 def actualizar_estado_pedido(id):
