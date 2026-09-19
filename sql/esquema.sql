@@ -126,6 +126,84 @@ BEGIN
     END IF;
 END $$;
 
+-- 7. Pedidos de clientes.
+CREATE TABLE IF NOT EXISTS pedidos (
+    id_pedido SERIAL PRIMARY KEY,
+    id_usuario INTEGER NOT NULL,
+    id_servicio INTEGER,
+    equipo VARCHAR(100) NOT NULL,
+    descripcion TEXT NOT NULL,
+    estado VARCHAR(30) NOT NULL DEFAULT 'Solicitado',
+    solicita_factura BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_solicitud TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pedidos_estado_check CHECK (
+        estado IN ('Solicitado', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
+    ),
+    CONSTRAINT pedidos_usuario_fk
+        FOREIGN KEY (id_usuario)
+        REFERENCES usuarios(id_usuario)
+        ON DELETE CASCADE,
+    CONSTRAINT pedidos_servicio_fk
+        FOREIGN KEY (id_servicio)
+        REFERENCES servicios(id_servicio)
+        ON DELETE SET NULL
+);
+
+-- Migración segura para instalaciones que ya tengan pedidos parcialmente creados.
+ALTER TABLE pedidos
+ADD COLUMN IF NOT EXISTS id_usuario INTEGER,
+ADD COLUMN IF NOT EXISTS id_servicio INTEGER,
+ADD COLUMN IF NOT EXISTS equipo VARCHAR(100),
+ADD COLUMN IF NOT EXISTS descripcion TEXT,
+ADD COLUMN IF NOT EXISTS estado VARCHAR(30) DEFAULT 'Solicitado',
+ADD COLUMN IF NOT EXISTS solicita_factura BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS fecha_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN IF NOT EXISTS fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'pedidos_estado_check'
+          AND conrelid = 'pedidos'::regclass
+    ) THEN
+        ALTER TABLE pedidos ADD CONSTRAINT pedidos_estado_check CHECK (
+            estado IN ('Solicitado', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
+        );
+    END IF;
+END $$;
+
+-- Facturas nuevas pueden vincularse a usuarios y pedidos; las antiguas siguen siendo válidas.
+ALTER TABLE facturas
+ADD COLUMN IF NOT EXISTS id_usuario INTEGER,
+ADD COLUMN IF NOT EXISTS id_pedido INTEGER;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'facturas_usuario_fk'
+          AND conrelid = 'facturas'::regclass
+    ) THEN
+        ALTER TABLE facturas ADD CONSTRAINT facturas_usuario_fk
+            FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE SET NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'facturas_pedido_fk'
+          AND conrelid = 'facturas'::regclass
+    ) THEN
+        ALTER TABLE facturas ADD CONSTRAINT facturas_pedido_fk
+            FOREIGN KEY (id_pedido) REFERENCES pedidos(id_pedido) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS facturas_pedido_unique
+    ON facturas (id_pedido)
+    WHERE id_pedido IS NOT NULL;
+
 -- 6. Perfil 1:1 de cada usuario. Los datos personales pueden quedar vacíos
 -- para usuarios antiguos hasta que completen su perfil.
 CREATE TABLE IF NOT EXISTS perfiles_usuario (

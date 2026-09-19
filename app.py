@@ -1,6 +1,15 @@
 from functools import wraps
 
-from flask import Flask, abort, render_template, request, redirect, url_for, flash
+from flask import (
+    Flask,
+    abort,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    flash,
+    send_file,
+)
 
 # Formularios utilizados por los módulos del sistema.
 # LoginForm y UsuarioForm se incorporan para la autenticación.
@@ -13,6 +22,10 @@ from forms import (
     UsuarioForm,
     PerfilForm,
     CambioPasswordForm,
+    PedidoForm,
+    PedidoEstadoForm,
+    EmitirFacturaForm,
+    PedidoAccionForm,
 )
 
 # Funciones utilizadas para conectar Flask con PostgreSQL.
@@ -40,6 +53,14 @@ import os
 import uuid
 
 from dotenv import load_dotenv
+from io import BytesIO
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, Table, TableStyle
+from reportlab.pdfgen import canvas
+from datetime import datetime
 
 # ==========================================================
 # CONFIGURACIÓN SEGURA DE LA APLICACIÓN
@@ -348,6 +369,32 @@ def admin_required(view):
     return wrapped_view
 
 
+def cliente_required(view):
+    """Protege rutas para que solo las cuentas con rol cliente las utilicen."""
+
+    @wraps(view)
+    @login_required
+    def wrapped_view(*args, **kwargs):
+        if current_user.rol != "cliente":
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
+def cargar_opciones_servicios():
+    """Carga los servicios actuales para los SelectField de los pedidos."""
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("SELECT id_servicio, nombre FROM servicios ORDER BY nombre ASC")
+    opciones = [
+        (servicio["id_servicio"], servicio["nombre"]) for servicio in cursor.fetchall()
+    ]
+    cursor.close()
+    conn.close()
+    return opciones
+
+
 @app.route("/registro", methods=["GET", "POST"])
 def registro():
     """
@@ -646,7 +693,469 @@ def dashboard():
     usuarios que hayan iniciado sesión.
     """
 
-    return render_template("dashboard.html", active="dashboard")
+    if current_user.rol == "cliente":
+        conn = obtener_conexion()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE estado NOT IN ('Entregado', 'Cancelado')) AS pendientes
+            FROM pedidos
+            WHERE id_usuario = %s
+            """,
+            (current_user.id,),
+        )
+        resumen = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return render_template(
+            "dashboard_cliente.html",
+            active="dashboard",
+            resumen=resumen,
+        )
+
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("""
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE estado = 'Solicitado') AS solicitados,
+               COUNT(*) FILTER (WHERE estado IN ('En revisión', 'En reparación')) AS en_proceso,
+               COUNT(*) FILTER (WHERE estado = 'Listo') AS listos,
+               COUNT(*) FILTER (WHERE estado = 'Entregado') AS entregados
+        FROM pedidos
+        """)
+    resumen = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return render_template("dashboard.html", active="dashboard", resumen=resumen)
+
+
+@app.route("/pedido/nuevo", methods=["GET", "POST"])
+@cliente_required
+def nuevo_pedido():
+    """Crea un pedido siempre asociado al cliente autenticado."""
+    form = PedidoForm()
+    form.servicio.choices = cargar_opciones_servicios()
+
+    if request.method == "GET":
+        servicio_parametro = request.args.get("servicio", type=int)
+        servicios_validos = {valor for valor, _ in form.servicio.choices}
+        if servicio_parametro in servicios_validos:
+            form.servicio.data = servicio_parametro
+
+    if form.validate_on_submit():
+        conn = obtener_conexion()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                INSERT INTO pedidos (id_usuario, id_servicio, equipo, descripcion, solicita_factura)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    current_user.id,
+                    form.servicio.data,
+                    form.equipo.data,
+                    form.descripcion.data,
+                    form.solicita_factura.data,
+                ),
+            )
+            conn.commit()
+            flash("Solicitud enviada correctamente.", "success")
+            return redirect(url_for("mis_pedidos"))
+        except Exception:
+            conn.rollback()
+            flash("No fue posible registrar la solicitud.", "danger")
+        finally:
+            cursor.close()
+            conn.close()
+
+    return render_template("formulario_pedido.html", form=form, active="mis_pedidos")
+
+
+@app.route("/mis-pedidos")
+@cliente_required
+def mis_pedidos():
+    """Lista exclusivamente los pedidos del cliente autenticado."""
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        """
+        SELECT p.id_pedido, p.equipo, p.descripcion, p.estado,
+               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
+               s.nombre AS servicio_nombre,
+               f.id_factura
+        FROM pedidos p
+        LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
+        WHERE p.id_usuario = %s
+        ORDER BY p.fecha_solicitud DESC
+        """,
+        (current_user.id,),
+    )
+    pedidos = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template(
+        "mis_pedidos.html",
+        pedidos=pedidos,
+        solicitar_factura_form=PedidoAccionForm(),
+        active="mis_pedidos",
+    )
+
+
+@app.route("/mis-pedidos/<int:id>/solicitar-factura", methods=["POST"])
+@cliente_required
+def solicitar_factura(id):
+    """Solicita factura solo para un pedido perteneciente al cliente actual."""
+    form = PedidoAccionForm()
+    if not form.validate_on_submit():
+        flash("No fue posible validar la solicitud de factura.", "danger")
+        return redirect(url_for("mis_pedidos"))
+
+    conn = obtener_conexion()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE pedidos
+        SET solicita_factura = TRUE, fecha_actualizacion = CURRENT_TIMESTAMP
+        WHERE id_pedido = %s AND id_usuario = %s
+        """,
+        (id, current_user.id),
+    )
+    if cursor.rowcount == 0:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        abort(404)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash("La factura fue solicitada para este pedido.", "success")
+    return redirect(url_for("mis_pedidos"))
+
+
+@app.route("/pedidos")
+@admin_required
+def pedidos_admin():
+    """Muestra todos los pedidos para gestión administrativa."""
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("""
+        SELECT p.id_pedido, p.equipo, p.descripcion, p.estado,
+               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
+             u.usuario, u.correo,
+             pu.nombres, pu.apellidos,
+               s.nombre AS servicio_nombre,
+               f.id_factura
+        FROM pedidos p
+        JOIN usuarios u ON u.id_usuario = p.id_usuario
+         LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
+        LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
+        ORDER BY p.fecha_solicitud DESC
+        """)
+    pedidos = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template(
+        "pedidos_admin.html",
+        pedidos=pedidos,
+        estado_form=PedidoEstadoForm(),
+        emitir_form=EmitirFacturaForm(),
+        active="pedidos",
+    )
+
+
+@app.route("/pedidos/<int:id>/estado", methods=["POST"])
+@admin_required
+def actualizar_estado_pedido(id):
+    """Actualiza el estado usando únicamente los valores definidos por el formulario."""
+    form = PedidoEstadoForm()
+    if not form.validate_on_submit():
+        flash("Selecciona un estado válido.", "danger")
+        return redirect(url_for("pedidos_admin"))
+
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        """
+        SELECT p.id_pedido, f.id_factura
+        FROM pedidos p
+        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
+        WHERE p.id_pedido = %s
+        """,
+        (id,),
+    )
+    pedido = cursor.fetchone()
+
+    if not pedido:
+        conn.close()
+        abort(404)
+
+    if form.estado.data == "Cancelado" and pedido["id_factura"]:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        flash(
+            "No se puede cancelar un pedido que ya tiene una factura emitida.",
+            "danger",
+        )
+        return redirect(url_for("pedidos_admin"))
+
+    cursor.execute(
+        """
+        UPDATE pedidos
+        SET estado = %s, fecha_actualizacion = CURRENT_TIMESTAMP
+        WHERE id_pedido = %s
+        """,
+        (form.estado.data, id),
+    )
+    if cursor.rowcount == 0:
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        abort(404)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash("Estado del pedido actualizado.", "success")
+    return redirect(url_for("pedidos_admin"))
+
+
+@app.route("/pedidos/<int:id>/factura", methods=["POST"])
+@admin_required
+def emitir_factura(id):
+    """Emite una sola factura vinculada al pedido y a su usuario."""
+    form = EmitirFacturaForm()
+    if not form.validate_on_submit():
+        flash("No fue posible validar la emisión de la factura.", "danger")
+        return redirect(url_for("pedidos_admin"))
+
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        """
+        SELECT p.id_pedido, p.id_usuario, p.id_servicio, p.equipo,
+               p.solicita_factura, s.nombre AS servicio_nombre,
+               s.precio, f.id_factura
+        FROM pedidos p
+        LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
+        WHERE p.id_pedido = %s
+        """,
+        (id,),
+    )
+    pedido = cursor.fetchone()
+
+    if not pedido:
+        cursor.close()
+        conn.close()
+        abort(404)
+    if pedido["id_factura"]:
+        conn.close()
+        flash("Este pedido ya tiene una factura emitida.", "warning")
+        return redirect(url_for("pedidos_admin"))
+    if not pedido["solicita_factura"]:
+        conn.close()
+        flash("El cliente todavía no ha solicitado factura.", "warning")
+        return redirect(url_for("pedidos_admin"))
+
+    numero = f"FAC-{datetime.now().strftime('%Y%m%d%H%M%S')}-{id}"
+    cursor.execute(
+        """
+        INSERT INTO facturas (numero, id_cliente, id_servicio, fecha, total, estado, id_usuario, id_pedido)
+        VALUES (%s, NULL, %s, CURRENT_DATE, %s, 'Pendiente', %s, %s)
+        """,
+        (
+            numero,
+            pedido["id_servicio"],
+            pedido["precio"] or 0,
+            pedido["id_usuario"],
+            id,
+        ),
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash(f"Factura {numero} emitida correctamente.", "success")
+    return redirect(url_for("pedidos_admin"))
+
+
+@app.route("/mis-facturas")
+@cliente_required
+def mis_facturas():
+    """Lista exclusivamente las facturas del cliente autenticado."""
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(
+        """
+        SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
+               f.id_pedido, p.equipo, s.nombre AS servicio_nombre
+        FROM facturas f
+        LEFT JOIN pedidos p ON p.id_pedido = f.id_pedido
+        LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
+        WHERE f.id_usuario = %s
+        ORDER BY f.fecha DESC, f.id_factura DESC
+        """,
+        (current_user.id,),
+    )
+    facturas = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template(
+        "mis_facturas.html", facturas=facturas, active="mis_facturas"
+    )
+
+
+@app.route("/facturas/<int:id>/pdf")
+@login_required
+def descargar_factura(id):
+    """Genera un PDF y limita el acceso del cliente a sus propias facturas."""
+    conn = obtener_conexion()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    if current_user.rol == "admin":
+        filtro = "f.id_factura = %s"
+        parametros = (id,)
+    else:
+        filtro = "f.id_factura = %s AND f.id_usuario = %s"
+        parametros = (id, current_user.id)
+
+    cursor.execute(
+        f"""
+        SELECT f.id_factura, f.numero, f.fecha, f.total,
+               f.id_pedido, p.equipo,
+               u.usuario, u.correo,
+               pu.nombres, pu.apellidos,
+               s.nombre AS servicio_nombre
+        FROM facturas f
+        LEFT JOIN usuarios u ON u.id_usuario = f.id_usuario
+        LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
+        LEFT JOIN pedidos p ON p.id_pedido = f.id_pedido
+        LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
+        WHERE {filtro}
+        """,
+        parametros,
+    )
+    factura = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not factura:
+        abort(404)
+
+    buffer = BytesIO()
+    documento = canvas.Canvas(buffer, pagesize=letter)
+    documento.setTitle(f"Factura {factura['numero']}")
+    styles = getSampleStyleSheet()
+    ancho = letter[0] - 2 * inch
+
+    # Encabezado textual profesional, sin depender de un logotipo externo.
+    documento.setFillColor(colors.HexColor("#112248"))
+    documento.setFont("Helvetica-Bold", 24)
+    documento.drawString(72, 735, "PC-Fix")
+    documento.setFont("Helvetica", 10)
+    documento.setFillColor(colors.HexColor("#4b5563"))
+    documento.drawString(72, 718, "Servicio técnico de equipos informáticos")
+    documento.setFillColor(colors.HexColor("#111827"))
+    documento.setFont("Helvetica-Bold", 19)
+    documento.drawRightString(letter[0] - 72, 735, "FACTURA")
+    documento.setFont("Helvetica", 10)
+    documento.drawRightString(letter[0] - 72, 718, f"N.º {factura['numero']}")
+    documento.drawRightString(letter[0] - 72, 702, f"Fecha: {factura['fecha']}")
+    documento.setStrokeColor(colors.HexColor("#d4af37"))
+    documento.setLineWidth(2)
+    documento.line(72, 682, letter[0] - 72, 682)
+
+    nombre_cliente = f"{factura['nombres'] or ''} {factura['apellidos'] or ''}".strip()
+    cliente_data = [
+        [Paragraph("<b>DATOS DEL CLIENTE</b>", styles["Normal"]), ""],
+        ["Nombre completo", nombre_cliente or factura["usuario"] or "No registrado"],
+        ["Usuario", factura["usuario"] or "No registrado"],
+        ["Correo", factura["correo"] or "No registrado"],
+        ["Identificador del pedido", str(factura["id_pedido"] or "No vinculado")],
+    ]
+    cliente_tabla = Table(cliente_data, colWidths=[1.7 * inch, ancho - 1.7 * inch])
+    cliente_tabla.setStyle(
+        TableStyle(
+            [
+                ("SPAN", (0, 0), (1, 0)),
+                ("BACKGROUND", (0, 0), (1, 0), colors.HexColor("#e8eef8")),
+                ("TEXTCOLOR", (0, 0), (1, 0), colors.HexColor("#112248")),
+                ("FONTNAME", (0, 0), (1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#d1d5db")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    cliente_tabla.wrapOn(documento, ancho, 150)
+    cliente_tabla.drawOn(documento, 72, 565)
+
+    precio = float(factura["total"] or 0)
+    detalle_data = [
+        ["Servicio", "Equipo", "Cantidad", "Precio"],
+        [
+            Paragraph(factura["servicio_nombre"] or "Servicio no disponible", styles["Normal"]),
+            Paragraph(factura["equipo"] or "No especificado", styles["Normal"]),
+            "1",
+            f"${precio:.2f}",
+        ],
+    ]
+    detalle_tabla = Table(detalle_data, colWidths=[2.35 * inch, 2.15 * inch, 0.7 * inch, 1.0 * inch])
+    detalle_tabla.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#112248")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#9ca3af")),
+                ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    detalle_tabla.wrapOn(documento, ancho, 100)
+    detalle_tabla.drawOn(documento, 72, 480)
+
+    resumen_data = [["Subtotal", f"${precio:.2f}"], ["TOTAL", f"${precio:.2f}"]]
+    resumen_tabla = Table(resumen_data, colWidths=[1.5 * inch, 1.2 * inch], hAlign="RIGHT")
+    resumen_tabla.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 1), (-1, 1), 13),
+                ("TEXTCOLOR", (0, 1), (-1, 1), colors.HexColor("#112248")),
+                ("LINEABOVE", (0, 1), (-1, 1), 1, colors.HexColor("#d4af37")),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    resumen_tabla.wrapOn(documento, ancho, 70)
+    resumen_tabla.drawOn(documento, letter[0] - 72 - 2.7 * inch, 385)
+
+    documento.setFillColor(colors.HexColor("#4b5563"))
+    documento.setFont("Helvetica-Oblique", 9)
+    documento.drawCentredString(letter[0] / 2, 70, "Gracias por confiar en PC-Fix.")
+    documento.drawCentredString(letter[0] / 2, 54, "Documento generado por el sistema PC-Fix.")
+    documento.save()
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"factura-{factura['numero']}.pdf",
+    )
 
 
 @app.route("/logout")

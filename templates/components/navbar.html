@@ -85,6 +85,32 @@
                 </li>
 
 
+                {% if current_user.rol == "cliente" %}
+                <li class="nav-item">
+                    <a href="{{ url_for('mis_pedidos') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'mis_pedidos' %}
+                                background-color: #d4af37;
+                                color: #112248;
+                                font-weight: bold;
+                            {% else %}
+                                background-color: #2563eb;
+                            {% endif %}">
+                        Mis pedidos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('mis_facturas') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'mis_facturas' %}
+                                background-color: #d4af37;
+                                color: #112248;
+                                font-weight: bold;
+                            {% else %}
+                                background-color: #2563eb;
+                            {% endif %}">
+                        Mis facturas
+                    </a>
+                </li>
+                {% endif %}
+
+
                 {% if current_user.rol == "admin" %}
                 <!-- Módulos administrativos: visibles únicamente para administradores. -->
                 <li class="nav-item dropdown">
@@ -128,6 +154,17 @@
 
                     </ul>
 
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('pedidos_admin') }}" class="nav-link btn nav-btn text-white" style="{% if active == 'pedidos' %}
+                                background-color: #d4af37;
+                                color: #112248;
+                                font-weight: bold;
+                            {% else %}
+                                background-color: #2563eb;
+                            {% endif %}">
+                        Pedidos
+                    </a>
                 </li>
                 {% endif %}
 

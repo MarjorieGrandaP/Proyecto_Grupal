@@ -41,6 +41,37 @@
 
     </div>
 
+    {% if current_user.rol == "admin" and resumen %}
+    <div class="row g-3 mb-4 text-center">
+        <div class="col-6 col-md">
+            <div class="card shadow-sm">
+                <div class="card-body"><strong>{{ resumen.total }}</strong><br><small>Total</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card shadow-sm">
+                <div class="card-body"><strong>{{ resumen.solicitados }}</strong><br><small>Solicitados</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card shadow-sm">
+                <div class="card-body"><strong>{{ resumen.en_proceso }}</strong><br><small>En revisión /
+                        reparación</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card shadow-sm">
+                <div class="card-body"><strong>{{ resumen.listos }}</strong><br><small>Listos</small></div>
+            </div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card shadow-sm">
+                <div class="card-body"><strong>{{ resumen.entregados }}</strong><br><small>Entregados</small></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 
     <!-- Accesos rápidos a los módulos privados -->
     <div class="row g-4 justify-content-center">
@@ -77,6 +108,17 @@
 
 
         {% if current_user.rol == "admin" %}
+        <!-- Pedidos -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card h-100 shadow-sm text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Pedidos</h5>
+                    <p class="card-text">Consultar y actualizar las solicitudes de los clientes.</p>
+                    <a href="{{ url_for('pedidos_admin') }}" class="btn btn-primary">Ir a Pedidos</a>
+                </div>
+            </div>
+        </div>
+
         <!-- Clientes -->
         <div class="col-md-6 col-lg-3">
 

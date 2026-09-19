@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Mis pedidos{% endblock %}
+
+{% block content %}
+<section class="seccion-contenido my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="titulo-seccion mb-0">Mis pedidos</h2>
+        <a href="{{ url_for('nuevo_pedido') }}" class="btn btn-success">Nueva solicitud</a>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded border">
+        <table class="table table-striped table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Pedido</th>
+                    <th>Servicio</th>
+                    <th>Equipo</th>
+                    <th>Descripción</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Factura</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in pedidos %}
+                {% set estado_clase = {
+                'Solicitado': 'bg-primary',
+                'En revisión': 'bg-warning text-dark',
+                'En reparación': 'bg-info text-dark',
+                'Listo': 'bg-success',
+                'Entregado': 'bg-secondary',
+                'Cancelado': 'bg-danger'
+                }.get(pedido.estado, 'bg-dark') %}
+                <tr>
+                    <td class="fw-bold">#{{ pedido.id_pedido }}</td>
+                    <td>{{ pedido.servicio_nombre or 'Servicio no disponible' }}</td>
+                    <td>{{ pedido.equipo }}</td>
+                    <td>{{ pedido.descripcion }}</td>
+                    <td>{{ pedido.fecha_solicitud.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td><span class="badge {{ estado_clase }}">{{ pedido.estado }}</span></td>
+                    <td>{% if pedido.solicita_factura %}<span class="badge bg-success">Solicitada</span>{% else %}<span
+                            class="badge bg-light text-dark border">No solicitada</span>{% endif %}</td>
+                    <td>
+                        {% if pedido.id_factura %}
+                        <a href="{{ url_for('descargar_factura', id=pedido.id_factura) }}"
+                            class="btn btn-sm btn-outline-primary">Factura</a>
+                        {% elif not pedido.solicita_factura %}
+                        <form method="POST" action="{{ url_for('solicitar_factura', id=pedido.id_pedido) }}">
+                            {{ solicitar_factura_form.hidden_tag() }}
+                            <button type="submit" class="btn btn-sm btn-outline-success">Solicitar factura</button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted small">Pendiente de emisión</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">Aún no tienes pedidos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
