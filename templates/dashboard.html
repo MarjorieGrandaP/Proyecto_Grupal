@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Panel de administración{% endblock %}
+
+{% block content %}
+
+<!-- ======================================================
+     PANEL PRIVADO DEL SISTEMA
+     Esta página solo puede ser utilizada por usuarios
+     autenticados porque la ruta /dashboard está protegida
+     con @login_required en app.py.
+======================================================= -->
+
+<section class="seccion-contenido my-4">
+
+    <!-- Mensaje de bienvenida utilizando current_user -->
+    <div class="text-center mb-5">
+
+        <h2 class="titulo-seccion">
+            Panel de administración
+        </h2>
+
+        <p class="lead">
+            Bienvenido,
+            <strong>{{ current_user.usuario }}</strong>
+        </p>
+
+        <p class="text-muted">
+            Desde este panel puedes acceder a los módulos internos de PC-Fix.
+        </p>
+
+    </div>
+
+
+    <!-- Accesos rápidos a los módulos privados -->
+    <div class="row g-4 justify-content-center">
+
+        <!-- Servicios -->
+        <div class="col-md-6 col-lg-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <h5 class="card-title">
+                        Servicios
+                    </h5>
+
+                    <p class="card-text">
+                        Consultar, registrar, modificar y eliminar
+                        los servicios técnicos.
+                    </p>
+
+                    <a
+                        href="{{ url_for('servicios') }}"
+                        class="btn btn-primary"
+                    >
+                        Ir a Servicios
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Clientes -->
+        <div class="col-md-6 col-lg-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <h5 class="card-title">
+                        Clientes
+                    </h5>
+
+                    <p class="card-text">
+                        Consultar y administrar la información
+                        de los clientes.
+                    </p>
+
+                    <a
+                        href="{{ url_for('clientes') }}"
+                        class="btn btn-primary"
+                    >
+                        Ir a Clientes
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Proveedores -->
+        <div class="col-md-6 col-lg-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <h5 class="card-title">
+                        Proveedores
+                    </h5>
+
+                    <p class="card-text">
+                        Consultar y administrar los proveedores
+                        vinculados al sistema.
+                    </p>
+
+                    <a
+                        href="{{ url_for('proveedores') }}"
+                        class="btn btn-primary"
+                    >
+                        Ir a Proveedores
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Facturación -->
+        <div class="col-md-6 col-lg-3">
+
+            <div class="card h-100 shadow-sm text-center">
+
+                <div class="card-body">
+
+                    <h5 class="card-title">
+                        Facturación
+                    </h5>
+
+                    <p class="card-text">
+                        Consultar y gestionar la información
+                        correspondiente a facturación.
+                    </p>
+
+                    <a
+                        href="{{ url_for('facturacion') }}"
+                        class="btn btn-primary"
+                    >
+                        Ir a Facturación
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Opción visible para finalizar la sesión -->
+    <div class="text-center mt-5">
+
+        <a
+            href="{{ url_for('logout') }}"
+            class="btn btn-outline-danger"
+        >
+            Cerrar sesión
+        </a>
+
+    </div>
+
+</section>
+
+{% endblock %}

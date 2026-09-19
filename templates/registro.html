@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Registrar usuario{% endblock %}
+
+{% block content %}
+
+<!-- ======================================================
+     FORMULARIO DE REGISTRO DE USUARIOS
+     Permite crear una cuenta nueva.
+
+     La contraseña escrita aquí NO se almacena directamente.
+     app.py la transforma mediante generate_password_hash()
+     antes de realizar el INSERT en PostgreSQL.
+======================================================= -->
+
+<section class="seccion-contenido my-4">
+
+    <div class="row justify-content-center">
+
+        <div class="col-md-7 col-lg-5">
+
+            <h2 class="titulo-seccion text-center mb-4">
+                Registrar usuario
+            </h2>
+
+
+            <!-- Mensajes generados desde Flask -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+
+                {% if messages %}
+
+                    {% for category, message in messages %}
+
+                        <div
+                            class="alert alert-{{ category }} alert-dismissible fade show"
+                            role="alert"
+                        >
+                            {{ message }}
+
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert"
+                                aria-label="Cerrar"
+                            ></button>
+
+                        </div>
+
+                    {% endfor %}
+
+                {% endif %}
+
+            {% endwith %}
+
+
+            <div class="card shadow-sm">
+
+                <div class="card-body p-4">
+
+                    <form method="POST">
+
+                        <!-- Token de protección CSRF -->
+                        {{ form.hidden_tag() }}
+
+
+                        <!-- Nombre de usuario -->
+                        <div class="mb-3">
+
+                            {{ form.usuario.label(
+                                class="form-label fw-bold"
+                            ) }}
+
+                            {{ form.usuario(
+                                class="form-control",
+                                placeholder="Cree un nombre de usuario"
+                            ) }}
+
+                            {% for error in form.usuario.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        <!-- Contraseña -->
+                        <div class="mb-3">
+
+                            {{ form.password.label(
+                                class="form-label fw-bold"
+                            ) }}
+
+                            <div class="input-group">
+
+                                {{ form.password(
+                                    class="form-control",
+                                    id="passwordRegistro",
+                                    placeholder="Cree una contraseña"
+                                ) }}
+
+                                <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="btnPasswordRegistro"
+                                    aria-label="Mostrar u ocultar contraseña"
+                                    title="Mostrar contraseña"
+                                >
+                                    👁
+                                </button>
+
+                            </div>
+
+                            {% for error in form.password.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        <!-- Confirmación de contraseña -->
+                        <div class="mb-3">
+
+                            {{ form.confirmar_password.label(
+                                class="form-label fw-bold"
+                            ) }}
+
+                            <div class="input-group">
+
+                                {{ form.confirmar_password(
+                                    class="form-control",
+                                    id="confirmarPassword",
+                                    placeholder="Repita la contraseña"
+                                ) }}
+
+                                <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="btnConfirmarPassword"
+                                    aria-label="Mostrar u ocultar contraseña"
+                                    title="Mostrar contraseña"
+                                >
+                                    👁
+                                </button>
+
+                            </div>
+
+                            {% for error in form.confirmar_password.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        <!-- Botón registrar -->
+                        <div class="d-grid mt-4">
+
+                            {{ form.submit(
+                                class="btn btn-success"
+                            ) }}
+
+                        </div>
+
+                    </form>
+
+
+                    <!-- Enlace hacia login -->
+                    <div class="text-center mt-4">
+
+                        <p class="mb-1">
+                            ¿Ya tienes una cuenta?
+                        </p>
+
+                        <a href="{{ url_for('login') }}">
+                            Iniciar sesión
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+    /*
+     * Función reutilizable que permite mostrar u ocultar
+     * cualquiera de los campos de contraseña del formulario.
+     */
+    function configurarVisibilidadPassword(
+        campoId,
+        botonId
+    ) {
+
+        const campo = document.getElementById(campoId);
+        const boton = document.getElementById(botonId);
+
+        boton.addEventListener("click", function () {
+
+            if (campo.type === "password") {
+
+                campo.type = "text";
+                boton.textContent = "🙈";
+                boton.title = "Ocultar contraseña";
+
+            } else {
+
+                campo.type = "password";
+                boton.textContent = "👁";
+                boton.title = "Mostrar contraseña";
+
+            }
+
+        });
+
+    }
+
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function () {
+
+            // Campo de contraseña principal
+            configurarVisibilidadPassword(
+                "passwordRegistro",
+                "btnPasswordRegistro"
+            );
+
+            // Campo de confirmación de contraseña
+            configurarVisibilidadPassword(
+                "confirmarPassword",
+                "btnConfirmarPassword"
+            );
+
+        }
+    );
+
+</script>
+
+{% endblock %}

@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS facturas (
     estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente'
 );
 
+-- 5. Tabla Usuarios: identificador único; nombre de usuario obligatorio; UNIQUE para impedir usuarios duplicados; espacio suficiente para almacenar la contraseña hasheada, no en texto plano.
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario SERIAL PRIMARY KEY,
+    usuario VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
 -- =========================================================
 -- INSERCIÓN DE DATOS INICIALES (SEMILLA)
 -- =========================================================

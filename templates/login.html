@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}PC-Fix - Iniciar sesión{% endblock %}
+
+{% block content %}
+
+<!-- ======================================================
+     FORMULARIO DE INICIO DE SESIÓN
+     Permite ingresar al sistema utilizando un usuario
+     registrado previamente en PostgreSQL.
+======================================================= -->
+
+<section class="seccion-contenido my-4">
+
+    <div class="row justify-content-center">
+
+        <div class="col-md-7 col-lg-5">
+
+            <h2 class="titulo-seccion text-center mb-4">
+                Iniciar sesión
+            </h2>
+
+            <!-- Mensajes generados desde Flask -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+
+                {% if messages %}
+
+                    {% for category, message in messages %}
+
+                        <div
+                            class="alert alert-{{ category }} alert-dismissible fade show"
+                            role="alert"
+                        >
+                            {{ message }}
+
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert"
+                                aria-label="Cerrar"
+                            ></button>
+
+                        </div>
+
+                    {% endfor %}
+
+                {% endif %}
+
+            {% endwith %}
+
+
+            <div class="card shadow-sm">
+
+                <div class="card-body p-4">
+
+                    <form method="POST">
+
+                        <!--
+                            hidden_tag() incorpora el token CSRF
+                            generado automáticamente por Flask-WTF.
+                        -->
+                        {{ form.hidden_tag() }}
+
+
+                        <!-- Nombre de usuario -->
+                        <div class="mb-3">
+
+                            {{ form.usuario.label(
+                                class="form-label fw-bold"
+                            ) }}
+
+                            {{ form.usuario(
+                                class="form-control",
+                                placeholder="Ingrese su usuario"
+                            ) }}
+
+                            <!-- Mostrar errores de validación -->
+                            {% for error in form.usuario.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        <!-- Contraseña -->
+                        <div class="mb-3">
+
+                            {{ form.password.label(
+                                class="form-label fw-bold"
+                            ) }}
+
+                            <div class="input-group">
+
+                                <!--
+                                    PasswordField genera inicialmente
+                                    un campo de tipo password, por lo que
+                                    los caracteres se muestran ocultos.
+                                -->
+                                {{ form.password(
+                                    class="form-control",
+                                    id="passwordLogin",
+                                    placeholder="Ingrese su contraseña"
+                                ) }}
+
+                                <!--
+                                    Este botón permite alternar entre
+                                    contraseña oculta y visible.
+                                -->
+                                <button
+                                    class="btn btn-outline-secondary"
+                                    type="button"
+                                    id="btnPasswordLogin"
+                                    aria-label="Mostrar u ocultar contraseña"
+                                    title="Mostrar contraseña"
+                                >
+                                    👁
+                                </button>
+
+                            </div>
+
+                            {% for error in form.password.errors %}
+
+                                <div class="text-danger small mt-1">
+                                    {{ error }}
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+                        <!-- Botón iniciar sesión -->
+                        <div class="d-grid mt-4">
+
+                            {{ form.submit(
+                                class="btn btn-primary"
+                            ) }}
+
+                        </div>
+
+                    </form>
+
+
+                    <!-- Enlace hacia el registro -->
+                    <div class="text-center mt-4">
+
+                        <p class="mb-1">
+                            ¿Aún no tienes una cuenta?
+                        </p>
+
+                        <a href="{{ url_for('registro') }}">
+                            Crear usuario
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+
+    /*
+     * Permite mostrar u ocultar la contraseña.
+     *
+     * El cambio ocurre únicamente en el navegador.
+     * No modifica la forma en que la contraseña
+     * posteriormente se almacena como hash.
+     */
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const password = document.getElementById(
+            "passwordLogin"
+        );
+
+        const boton = document.getElementById(
+            "btnPasswordLogin"
+        );
+
+
+        boton.addEventListener("click", function () {
+
+            if (password.type === "password") {
+
+                // Mostrar contraseña
+                password.type = "text";
+                boton.textContent = "🙈";
+                boton.title = "Ocultar contraseña";
+
+            } else {
+
+                // Ocultar contraseña nuevamente
+                password.type = "password";
+                boton.textContent = "👁";
+                boton.title = "Mostrar contraseña";
+
+            }
+
+        });
+
+    });
+
+</script>
+
+{% endblock %}
