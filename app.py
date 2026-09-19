@@ -1100,13 +1100,17 @@ def descargar_factura(id):
     detalle_data = [
         ["Servicio", "Equipo", "Cantidad", "Precio"],
         [
-            Paragraph(factura["servicio_nombre"] or "Servicio no disponible", styles["Normal"]),
+            Paragraph(
+                factura["servicio_nombre"] or "Servicio no disponible", styles["Normal"]
+            ),
             Paragraph(factura["equipo"] or "No especificado", styles["Normal"]),
             "1",
             f"${precio:.2f}",
         ],
     ]
-    detalle_tabla = Table(detalle_data, colWidths=[2.35 * inch, 2.15 * inch, 0.7 * inch, 1.0 * inch])
+    detalle_tabla = Table(
+        detalle_data, colWidths=[2.35 * inch, 2.15 * inch, 0.7 * inch, 1.0 * inch]
+    )
     detalle_tabla.setStyle(
         TableStyle(
             [
@@ -1127,7 +1131,9 @@ def descargar_factura(id):
     detalle_tabla.drawOn(documento, 72, 480)
 
     resumen_data = [["Subtotal", f"${precio:.2f}"], ["TOTAL", f"${precio:.2f}"]]
-    resumen_tabla = Table(resumen_data, colWidths=[1.5 * inch, 1.2 * inch], hAlign="RIGHT")
+    resumen_tabla = Table(
+        resumen_data, colWidths=[1.5 * inch, 1.2 * inch], hAlign="RIGHT"
+    )
     resumen_tabla.setStyle(
         TableStyle(
             [
@@ -1147,7 +1153,9 @@ def descargar_factura(id):
     documento.setFillColor(colors.HexColor("#4b5563"))
     documento.setFont("Helvetica-Oblique", 9)
     documento.drawCentredString(letter[0] / 2, 70, "Gracias por confiar en PC-Fix.")
-    documento.drawCentredString(letter[0] / 2, 54, "Documento generado por el sistema PC-Fix.")
+    documento.drawCentredString(
+        letter[0] / 2, 54, "Documento generado por el sistema PC-Fix."
+    )
     documento.save()
     buffer.seek(0)
     return send_file(
