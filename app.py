@@ -33,8 +33,29 @@ from models import Usuario
 
 import os
 
+from dotenv import load_dotenv
+
+# ==========================================================
+# CONFIGURACIÓN SEGURA DE LA APLICACIÓN
+# ==========================================================
+
+# Carga las variables privadas almacenadas localmente
+# en el archivo .env.
+load_dotenv()
+
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "mi_secreto_super_seguro_123"
+
+# SECRET_KEY es utilizada por Flask para proteger
+# sesiones, mensajes flash y formularios CSRF.
+#
+# La clave se obtiene desde .env para evitar publicarla
+# dentro del código fuente o subirla a GitHub.
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+
+# Si la clave no está configurada, la aplicación se detiene
+# para evitar ejecutarse con una configuración insegura.
+if not app.config["SECRET_KEY"]:
+    raise RuntimeError("No se encontró SECRET_KEY. " "Configúrala en el archivo .env.")
 # ==========================================================
 # CONFIGURACIÓN DE FLASK-LOGIN
 # ==========================================================
@@ -173,6 +194,47 @@ def obtener_opciones_proveedores():
     except Exception as e:
         print(f"[ERROR PROVEEDORES] Error al obtener proveedores: {e}")
         return [(0, "-- Sin proveedor asignado --")]
+
+
+def obtener_imagenes_servicios():
+    """
+    Obtiene automáticamente las imágenes disponibles
+    dentro de static/img.
+
+    Solo se incluyen archivos cuyo nombre empiece por
+    'servicio-' para evitar mostrar imágenes como favicon,
+    fotografías del equipo, encabezados u otros recursos.
+    """
+
+    carpeta_imagenes = os.path.join(
+        app.root_path,
+        "static",
+        "img",
+    )
+
+    extensiones_permitidas = (
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+    )
+
+    opciones = []
+
+    # Verifica que la carpeta exista antes de leerla.
+    if not os.path.exists(carpeta_imagenes):
+        return opciones
+
+    for archivo in os.listdir(carpeta_imagenes):
+
+        # Solo se aceptan imágenes destinadas a servicios.
+        if archivo.lower().startswith("servicio-") and archivo.lower().endswith(
+            extensiones_permitidas
+        ):
+            opciones.append((archivo, archivo))
+
+    # Ordenar alfabéticamente los archivos.
+    return sorted(opciones)
 
 
 # ==========================================================
@@ -442,7 +504,8 @@ def nuevo_servicio():
     """Registrar un nuevo registro mediante INSERT INTO parametrizado."""
     form = ProductoForm()
     form.id_proveedor.choices = obtener_opciones_proveedores()
-
+    # Cargar automáticamente las imágenes disponibles.
+    form.imagen.choices = obtener_imagenes_servicios()
     if form.validate_on_submit():
         id_prov = (
             form.id_proveedor.data
@@ -500,6 +563,7 @@ def editar_servicio(id):
 
     form = ProductoForm()
     form.id_proveedor.choices = obtener_opciones_proveedores()
+    form.imagen.choices = obtener_imagenes_servicios()
 
     if request.method == "GET":
         form.nombre.data = servicio["nombre"]
@@ -657,4 +721,3 @@ def nueva_factura():
 
 if __name__ == "__main__":
     app.run(debug=True)
-

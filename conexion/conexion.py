@@ -12,7 +12,15 @@ DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_PORT = os.getenv('DB_PORT', '5432')
 DB_NAME = os.getenv('DB_NAME', 'pcfix_db')
 DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
+# La contraseña se obtiene exclusivamente desde .env.
+# No se incluye ninguna contraseña real dentro del código.
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+if not DB_PASSWORD:
+    raise RuntimeError(
+        "No se encontró DB_PASSWORD. "
+        "Configúrala en el archivo .env."
+    )
 
 
 def obtener_conexion():
