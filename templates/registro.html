@@ -28,7 +28,7 @@
 
                 <div class="card-body p-4">
 
-                    <form method="POST" class="formulario-validacion" novalidate>
+                    <form method="POST" id="registroForm" class="formulario-validacion" novalidate>
 
                         <!-- Token de protección CSRF -->
                         {{ form.hidden_tag() }}
@@ -175,6 +175,18 @@
                         </div>
 
 
+                        <!-- reCAPTCHA: requisito adicional del registro público -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Confirma que no eres un robot.</label>
+                            <div class="g-recaptcha" data-sitekey="{{ config['RECAPTCHA_PUBLIC_KEY'] }}"
+                                data-callback="captchaResuelto" data-expired-callback="captchaExpirado"
+                                data-error-callback="captchaError"></div>
+                            <input type="hidden" name="recaptcha_token" id="recaptcha_token">
+                            <div id="recaptcha-mensaje" class="text-danger small mt-1"></div>
+                            <div class="form-text">Confirma que no eres un robot.</div>
+                        </div>
+
+
                         <!-- Botón registrar -->
                         <div class="d-grid mt-4">
 
@@ -216,6 +228,20 @@
 {% block scripts %}
 
 <script>
+    function captchaResuelto(token) {
+        document.getElementById("recaptcha_token").value = token;
+        document.getElementById("recaptcha-mensaje").textContent = "";
+    }
+
+    function captchaExpirado() {
+        document.getElementById("recaptcha_token").value = "";
+        document.getElementById("recaptcha-mensaje").textContent = "Confirma que no eres un robot.";
+    }
+
+    function captchaError() {
+        document.getElementById("recaptcha_token").value = "";
+        document.getElementById("recaptcha-mensaje").textContent = "No fue posible validar reCAPTCHA. Inténtalo nuevamente.";
+    }
 
     /*
      * Función reutilizable que permite mostrar u ocultar
@@ -311,5 +337,7 @@
     );
 
 </script>
+
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
 {% endblock %}

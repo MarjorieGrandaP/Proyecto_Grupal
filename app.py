@@ -51,6 +51,10 @@ from models import Usuario
 
 import os
 import uuid
+import json
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 from io import BytesIO
@@ -78,6 +82,8 @@ app = Flask(__name__)
 # La clave se obtiene desde .env para evitar publicarla
 # dentro del código fuente o subirla a GitHub.
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+app.config["RECAPTCHA_PUBLIC_KEY"] = os.getenv("RECAPTCHA_PUBLIC_KEY")
+app.config["RECAPTCHA_PRIVATE_KEY"] = os.getenv("RECAPTCHA_PRIVATE_KEY")
 
 # Si la clave no está configurada, la aplicación se detiene
 # para evitar ejecutarse con una configuración insegura.
@@ -130,6 +136,37 @@ def imagen_perfil_url(nombre_imagen):
 def normalizar_correo(correo):
     """Normaliza correos para guardar, buscar y comprobar duplicados."""
     return correo.strip().lower() if correo else None
+
+
+def verificar_recaptcha(token, remote_ip=None):
+    """Verifica el token v2 con Google antes de iniciar el registro."""
+    if not token:
+        return False, "Confirma que no eres un robot."
+
+    secret = app.config.get("RECAPTCHA_PRIVATE_KEY")
+    if not secret:
+        return False, "No fue posible validar reCAPTCHA. Inténtalo nuevamente."
+
+    datos = {"secret": secret, "response": token}
+    if remote_ip:
+        datos["remoteip"] = remote_ip
+
+    solicitud = Request(
+        "https://www.google.com/recaptcha/api/siteverify",
+        data=urlencode(datos).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    try:
+        with urlopen(solicitud, timeout=10) as respuesta:
+            resultado = json.loads(respuesta.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError):
+        return False, "No fue posible validar reCAPTCHA. Inténtalo nuevamente."
+
+    if resultado.get("success") is True:
+        return True, None
+    return False, "No fue posible validar reCAPTCHA. Inténtalo nuevamente."
 
 
 def guardar_imagen_perfil(archivo):
@@ -412,7 +449,19 @@ def registro():
 
     form = UsuarioForm()
 
-    if form.validate_on_submit():
+    formulario_valido = form.validate_on_submit()
+
+    if formulario_valido:
+        token = request.form.get("recaptcha_token") or request.form.get(
+            "g-recaptcha-response"
+        )
+        captcha_valido, mensaje_captcha = verificar_recaptcha(
+            token, request.remote_addr
+        )
+        if not captcha_valido:
+            flash(mensaje_captcha, "danger")
+            return render_template("registro.html", form=form, active="registro")
+
         correo_normalizado = normalizar_correo(form.correo.data)
         conn = obtener_conexion()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
