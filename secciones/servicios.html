@@ -4,28 +4,15 @@
 <head>
     <meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>PC-Fix - Servicios Técnicos</title>
 
-    <link
-        rel="icon"
-        type="image/png"
-        href="../static/img/favicon.png"
-    >
+    <link rel="icon" type="image/png" href="../static/img/favicon.png">
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <link
-        rel="stylesheet"
-        href="../static/css/styles.css"
-    >
+    <link rel="stylesheet" href="../static/css/styles.css">
 </head>
 
 <body>
@@ -35,104 +22,66 @@
             PC-FIX
         </h1>
 
-        <img
-            src="../static/img/encabezado.png"
-            alt="Servicio de soporte y reparación de equipos informáticos"
-            class="img-fluid w-100"
-        >
+        <img src="../static/img/encabezado.png" alt="Servicio de soporte y reparación de equipos informáticos"
+            class="img-fluid w-100">
     </header>
 
-    <nav
-        class="navbar navbar-expand-lg navbar-dark"
-        style="background-color: #0f172a;"
-    >
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #0f172a;">
         <div class="container-fluid">
 
             <!-- Botón hamburguesa para celulares -->
-            <button
-                class="navbar-toggler mx-auto mb-2"
-                type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#menuPrincipal"
-                aria-controls="menuPrincipal"
-                aria-expanded="false"
-                aria-label="Mostrar menú de navegación"
-            >
+            <button class="navbar-toggler mx-auto mb-2" type="button" data-bs-toggle="collapse"
+                data-bs-target="#menuPrincipal" aria-controls="menuPrincipal" aria-expanded="false"
+                aria-label="Mostrar menú de navegación">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <div
-                class="collapse navbar-collapse justify-content-center"
-                id="menuPrincipal"
-            >
+            <div class="collapse navbar-collapse justify-content-center" id="menuPrincipal">
                 <ul class="navbar-nav gap-3 align-items-center">
 
                     <li class="nav-item">
-                        <a
-                            href="../index.html"
-                            class="nav-link btn nav-btn text-white"
-                            style="background-color: #2563eb;"
-                        >
+                        <a href="../index.html" class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;">
                             Inicio
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a
-                            href="conocenos.html"
-                            class="nav-link btn nav-btn text-white"
-                            style="background-color: #2563eb;"
-                        >
+                        <a href="conocenos.html" class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;">
                             Conócenos
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a
-                            href="servicios.html"
-                            class="nav-link btn nav-btn active"
-                            style="background-color: #d4af37; color: #112248; font-weight: bold;"
-                        >
+                        <a href="servicios.html" class="nav-link btn nav-btn active"
+                            style="background-color: #d4af37; color: #112248; font-weight: bold;">
                             Servicios
                         </a>
                     </li>
 
                     <li class="nav-item">
-                        <a
-                            href="contacto.html"
-                            class="nav-link btn nav-btn text-white"
-                            style="background-color: #2563eb;"
-                        >
+                        <a href="contacto.html" class="nav-link btn nav-btn text-white"
+                            style="background-color: #2563eb;">
                             Contacto
                         </a>
                     </li>
 
                     <li class="nav-item dropdown">
-                        <button
-                            class="nav-link btn nav-btn text-white dropdown-toggle"
-                            type="button"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                            style="background-color: #2563eb;"
-                        >
+                        <button class="nav-link btn nav-btn text-white dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false" style="background-color: #2563eb;">
                             Módulos
                         </button>
 
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="clientes.html"
-                                >
+                                <a class="dropdown-item" href="clientes.html">
                                     Clientes
                                 </a>
                             </li>
 
                             <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="proveedores.html"
-                                >
+                                <a class="dropdown-item" href="proveedores.html">
                                     Proveedores
                                 </a>
                             </li>
@@ -142,20 +91,30 @@
                             </li>
 
                             <li>
-                                <a
-                                    class="dropdown-item"
-                                    href="facturacion.html"
-                                >
+                                <a class="dropdown-item" href="facturacion.html">
                                     Facturación
                                 </a>
                             </li>
                         </ul>
                     </li>
 
+                    <li class="nav-item">
+                        <button type="button" class="nav-link btn nav-btn text-white" data-bs-toggle="modal"
+                            data-bs-target="#modalAccesoSistema" style="background-color: #2563eb;">
+                            Acceso al sistema
+                        </button>
+                    </li>
+
                 </ul>
             </div>
         </div>
     </nav>
+
+    <div class="alert alert-info border-0 rounded-0 text-center mb-0 py-2" role="status">
+        <small><strong>Versión demostrativa:</strong> GitHub Pages presenta la interfaz del sistema. El registro,
+            autenticación, gestión de usuarios y operaciones con PostgreSQL se ejecutan en la aplicación Flask
+            local.</small>
+    </div>
 
     <main class="container my-5">
 
@@ -175,7 +134,8 @@
             <div class="card shadow-sm mb-5 border-0">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
                     <h5 class="m-0 fw-bold">Gestión de Servicios Registrados</h5>
-                    <button class="btn btn-sm btn-success" onclick="alert('En el entorno Flask en vivo, este botón abre el formulario de registro con validaciones Flask-WTF.')">
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal"
+                        data-bs-target="#modalRegistroServicio">
                         + Registrar Nuevo Servicio
                     </button>
                 </div>
@@ -195,43 +155,58 @@
                         <tbody>
                             <tr>
                                 <td class="text-center fw-bold">1</td>
-                                <td><img src="../static/img/servicio-1.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td><img src="../static/img/servicio-1.jpg" alt="Servicio"
+                                        style="width: 45px; height: 45px; object-fit: cover;" class="rounded border">
+                                </td>
                                 <td class="fw-bold">Mantenimiento Preventivo</td>
                                 <td><span class="badge bg-secondary">TecnoRepuestos S.A.</span></td>
                                 <td>1 hora</td>
                                 <td class="text-success fw-bold">$25.00</td>
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/1 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Mantenimiento Preventivo">Eliminar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="alert('En Flask, redirige a /servicios/editar/1 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal" data-bs-target="#modalEliminarDemo"
+                                            data-nombre="Mantenimiento Preventivo">Eliminar</button>
                                     </div>
                                 </td>
                             </tr>
                             <tr>
                                 <td class="text-center fw-bold">2</td>
-                                <td><img src="../static/img/servicio-2.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td><img src="../static/img/servicio-2.jpg" alt="Servicio"
+                                        style="width: 45px; height: 45px; object-fit: cover;" class="rounded border">
+                                </td>
                                 <td class="fw-bold">Mantenimiento Correctivo</td>
                                 <td><span class="badge bg-secondary">TecnoRepuestos S.A.</span></td>
                                 <td>2 horas</td>
                                 <td class="text-success fw-bold">$40.00</td>
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/2 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Mantenimiento Correctivo">Eliminar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="alert('En Flask, redirige a /servicios/editar/2 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal" data-bs-target="#modalEliminarDemo"
+                                            data-nombre="Mantenimiento Correctivo">Eliminar</button>
                                     </div>
                                 </td>
                             </tr>
                             <tr>
                                 <td class="text-center fw-bold">3</td>
-                                <td><img src="../static/img/servicio-3.jpg" alt="Servicio" style="width: 45px; height: 45px; object-fit: cover;" class="rounded border"></td>
+                                <td><img src="../static/img/servicio-3.jpg" alt="Servicio"
+                                        style="width: 45px; height: 45px; object-fit: cover;" class="rounded border">
+                                </td>
                                 <td class="fw-bold">Optimización y Limpieza</td>
                                 <td><span class="badge bg-secondary">PC Parts Ecuador</span></td>
                                 <td>45 minutos</td>
                                 <td class="text-success fw-bold">$20.00</td>
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="alert('En Flask, redirige a /servicios/editar/3 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEliminarDemo" data-nombre="Optimización y Limpieza">Eliminar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="alert('En Flask, redirige a /servicios/editar/3 para modificar los datos del registro en PostgreSQL.')">Modificar</button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal" data-bs-target="#modalEliminarDemo"
+                                            data-nombre="Optimización y Limpieza">Eliminar</button>
                                     </div>
                                 </td>
                             </tr>
@@ -241,22 +216,72 @@
             </div>
 
             <!-- Modal de confirmación para GitHub Pages estático -->
-            <div class="modal fade" id="modalEliminarDemo" tabindex="-1" aria-labelledby="modalEliminarDemoLabel" aria-hidden="true">
+            <div class="modal fade" id="modalEliminarDemo" tabindex="-1" aria-labelledby="modalEliminarDemoLabel"
+                aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header bg-danger text-white">
                             <h5 class="modal-title" id="modalEliminarDemoLabel">Confirmar Eliminación</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <p>¿Estás seguro de que deseas eliminar permanentemente el servicio seleccionado?</p>
                             <div class="alert alert-warning py-2 mb-0 small">
-                                En la aplicación Flask en vivo, esta acción ejecuta una consulta DELETE FROM en PostgreSQL.
+                                En la aplicación Flask en vivo, esta acción ejecuta una consulta DELETE FROM en
+                                PostgreSQL.
                             </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-danger" data-bs-dismiss="modal" onclick="alert('En la aplicación Flask real, el registro es eliminado de la base de datos PostgreSQL.')">Eliminar Definitivamente</button>
+                            <button type="button" class="btn btn-danger" data-bs-dismiss="modal"
+                                onclick="alert('En la aplicación Flask real, el registro es eliminado de la base de datos PostgreSQL.')">Eliminar
+                                Definitivamente</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalRegistroServicio" tabindex="-1"
+                aria-labelledby="modalRegistroServicioLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title" id="modalRegistroServicioLabel">Registrar nuevo servicio</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-2">El registro real de servicios está disponible en el entorno Flask local.</p>
+                            <div class="alert alert-info py-2 mb-0 small">
+                                Allí el formulario utiliza Flask-WTF para validar los datos y PostgreSQL para guardar el
+                                servicio.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Entendido</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalAccesoSistema" tabindex="-1" aria-labelledby="modalAccesoSistemaLabel"
+                aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="modalAccesoSistemaLabel">Acceso al sistema</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-2">El inicio de sesión, el registro de usuarios y el panel de gestión requieren
+                                ejecutar la aplicación Flask local.</p>
+                            <div class="alert alert-info py-2 mb-0 small">Esta versión de GitHub Pages es una
+                                demostración visual y no crea sesiones ni usuarios reales.</div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Entendido</button>
                         </div>
                     </div>
                 </div>
@@ -265,11 +290,8 @@
             <div class="contenedor-servicios">
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-1.jpg"
-                        alt="Técnico realizando mantenimiento preventivo"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-1.jpg" alt="Técnico realizando mantenimiento preventivo"
+                        class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Mantenimiento Preventivo</h3>
@@ -291,11 +313,8 @@
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-2.jpg"
-                        alt="Técnico realizando mantenimiento correctivo"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-2.jpg" alt="Técnico realizando mantenimiento correctivo"
+                        class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Mantenimiento Correctivo</h3>
@@ -316,11 +335,8 @@
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-3.jpg"
-                        alt="Optimización y limpieza de computadora"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-3.jpg" alt="Optimización y limpieza de computadora"
+                        class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Optimización y Limpieza</h3>
@@ -341,11 +357,8 @@
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-4.jpg"
-                        alt="Instalación de software en una computadora"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-4.jpg" alt="Instalación de software en una computadora"
+                        class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Instalación de Software</h3>
@@ -366,11 +379,7 @@
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-4.jpg"
-                        alt="Formateo e instalación de Windows"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-4.jpg" alt="Formateo e instalación de Windows" class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Formateo e Instalación de Windows</h3>
@@ -391,11 +400,8 @@
                 </div>
 
                 <div class="tarjeta-servicio" tabindex="0">
-                    <img
-                        src="../static/img/servicio-1.jpg"
-                        alt="Recuperación de datos de un equipo informático"
-                        class="img-tarjeta"
-                    >
+                    <img src="../static/img/servicio-1.jpg" alt="Recuperación de datos de un equipo informático"
+                        class="img-tarjeta">
 
                     <div class="contenido-tarjeta">
                         <h3>Recuperación de Datos</h3>
@@ -436,11 +442,10 @@
     </footer>
 
     <!-- Bootstrap: necesario para el menú adaptable -->
-    <script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script src="../static/js/script.js"></script>
 
 </body>
+
 </html>

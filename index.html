@@ -97,10 +97,23 @@
                         </ul>
                     </li>
 
+                    <li class="nav-item">
+                        <button type="button" class="nav-link btn nav-btn text-white" data-bs-toggle="modal"
+                            data-bs-target="#modalAccesoSistema" style="background-color: #2563eb;">
+                            Acceso al sistema
+                        </button>
+                    </li>
+
                 </ul>
             </div>
         </div>
     </nav>
+
+    <div class="alert alert-info border-0 rounded-0 text-center mb-0 py-2" role="status">
+        <small><strong>Versión demostrativa:</strong> GitHub Pages presenta la interfaz del sistema. El registro,
+            autenticación, gestión de usuarios y operaciones con PostgreSQL se ejecutan en la aplicación Flask
+            local.</small>
+    </div>
 
 
     <main>
@@ -229,6 +242,28 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-danger" id="btn-confirmar-eliminar">Sí, Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAccesoSistema" tabindex="-1" aria-labelledby="modalAccesoSistemaLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="modalAccesoSistemaLabel">Acceso al sistema</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">El inicio de sesión, el registro de usuarios y el panel de gestión requieren
+                        ejecutar la aplicación Flask local.</p>
+                    <div class="alert alert-info py-2 mb-0 small">Esta versión de GitHub Pages es una demostración
+                        visual y no crea sesiones ni usuarios reales.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Entendido</button>
                 </div>
             </div>
         </div>
