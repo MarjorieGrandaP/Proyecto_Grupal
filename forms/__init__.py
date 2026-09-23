@@ -13,3 +13,4 @@ from .pedido_form import PedidoForm
 from .pedido_estado_form import PedidoEstadoForm
 from .emitir_factura_form import EmitirFacturaForm
 from .pedido_accion_form import PedidoAccionForm
+from .eliminar_form import EliminarForm

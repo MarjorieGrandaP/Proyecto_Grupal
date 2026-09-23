@@ -13,33 +13,20 @@
                         {{ form.hidden_tag() }}
 
                         <div class="mb-3">
-                            {{ form.numero.label(class="form-label fw-bold") }}
-                            {{ form.numero(class="form-control", minlength="3", maxlength="20", required=true,
-                            data_validation="required,minlength:3,maxlength:20", data_validation_message="Es obligatorio
-                            y debe tener entre 3 y 20 caracteres.") }}
-                            {% for error in form.numero.errors %}
+                            {{ form.id_cliente.label(class="form-label fw-bold") }}
+                            {{ form.id_cliente(class="form-select", required=true,
+                            data_validation="required", data_validation_message="Selecciona un cliente.") }}
+                            {% for error in form.id_cliente.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                             <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
-                            {{ form.cliente.label(class="form-label fw-bold") }}
-                            {{ form.cliente(class="form-control", minlength="3", maxlength="100", required=true,
-                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
-                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
-                            {% for error in form.cliente.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.servicio.label(class="form-label fw-bold") }}
-                            {{ form.servicio(class="form-control", minlength="3", maxlength="100", required=true,
-                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
-                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
-                            {% for error in form.servicio.errors %}
+                            {{ form.id_servicio.label(class="form-label fw-bold") }}
+                            {{ form.id_servicio(class="form-select", required=true,
+                            data_validation="required", data_validation_message="Selecciona un servicio.") }}
+                            {% for error in form.id_servicio.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                             <div class="invalid-feedback" data-validation-feedback></div>

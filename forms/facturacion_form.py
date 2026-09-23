@@ -1,31 +1,19 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, FloatField, DateField, SelectField, SubmitField
-from wtforms.validators import DataRequired, InputRequired, Length, NumberRange
+from wtforms import FloatField, DateField, SelectField, SubmitField
+from wtforms.validators import DataRequired, InputRequired, NumberRange
 
 
 class FacturacionForm(FlaskForm):
-    numero = StringField(
-        "Número de Factura",
-        validators=[
-            DataRequired(message="El número es obligatorio."),
-            Length(min=3, max=20, message="Debe tener entre 3 y 20 caracteres."),
-        ],
-    )
-
-    cliente = StringField(
+    id_cliente = SelectField(
         "Cliente",
-        validators=[
-            DataRequired(message="El cliente es obligatorio."),
-            Length(min=3, max=100, message="Debe tener entre 3 y 100 caracteres."),
-        ],
+        choices=[],
+        validators=[DataRequired(message="El cliente es obligatorio.")],
     )
 
-    servicio = StringField(
+    id_servicio = SelectField(
         "Servicio",
-        validators=[
-            DataRequired(message="El servicio es obligatorio."),
-            Length(min=3, max=100, message="Debe tener entre 3 y 100 caracteres."),
-        ],
+        choices=[],
+        validators=[DataRequired(message="El servicio es obligatorio.")],
     )
 
     fecha = DateField(

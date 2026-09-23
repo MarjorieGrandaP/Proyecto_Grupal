@@ -24,6 +24,14 @@
                         </div>
 
                         <div class="mb-3">
+                            {{ form.cedula.label(class="form-label fw-bold") }}
+                            {{ form.cedula(class="form-control", maxlength="20") }}
+                            {% for error in form.cedula.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
                             {{ form.telefono.label(class="form-label fw-bold") }}
                             {{ form.telefono(class="form-control", minlength="9", maxlength="15", required=true,
                             data_validation="required,minlength:9,maxlength:15", data_validation_message="Es obligatorio
@@ -32,6 +40,14 @@
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                             <div class="invalid-feedback" data-validation-feedback></div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.correo.label(class="form-label fw-bold") }}
+                            {{ form.correo(class="form-control", type="email", maxlength="100") }}
+                            {% for error in form.correo.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
                         </div>
 
                         <div class="mb-3">
