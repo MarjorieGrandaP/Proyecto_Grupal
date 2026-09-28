@@ -76,6 +76,8 @@
                                 data-bs-target="#cancelarPedido" data-action="{{ url_for('cancelar_pedido', id=pedido.id_pedido) }}">Cancelar</button>
                             {% endif %}
                         </div>
+                        {% elif pedido.estado == 'Entregado' and pedido.id_factura %}
+                        <span class="small text-muted text-nowrap">Finalizado</span>
                         {% elif pedido.estado != 'Cancelado' %}
                         <span class="small text-muted text-nowrap">Pedido en proceso</span>
                         {% else %}

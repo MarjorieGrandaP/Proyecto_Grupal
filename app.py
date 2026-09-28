@@ -1772,8 +1772,11 @@ def descargar_factura(id):
             ]
         )
     )
-    resumen_tabla.wrapOn(documento, ancho, 70)
-    resumen_y = detalle_y - 130
+    _, resumen_altura = resumen_tabla.wrapOn(documento, ancho, letter[1])
+    resumen_y = detalle_y - 18 - resumen_altura
+    if resumen_y < 90:
+        documento.showPage()
+        resumen_y = letter[1] - 72 - resumen_altura
     resumen_tabla.drawOn(documento, letter[0] - 72 - 3.0 * inch, resumen_y)
 
     garantia_nota = Paragraph(
@@ -1784,7 +1787,11 @@ def descargar_factura(id):
         styles["Normal"],
     )
     _, nota_altura = garantia_nota.wrap(ancho, 150)
-    garantia_nota.drawOn(documento, 72, min(110, resumen_y - nota_altura - 24))
+    nota_y = min(110, resumen_y - nota_altura - 24)
+    if nota_y < 90:
+        documento.showPage()
+        nota_y = letter[1] - 72 - nota_altura
+    garantia_nota.drawOn(documento, 72, nota_y)
     documento.setFillColor(colors.HexColor("#4b5563"))
     documento.setFont("Helvetica-Oblique", 9)
     documento.drawCentredString(letter[0] / 2, 70, "Gracias por confiar en PC-Fix.")
