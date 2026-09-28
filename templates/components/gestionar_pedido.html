@@ -1,114 +1,227 @@
-<div class="modal fade" id="gestionar-{{ pedido.id_pedido }}" tabindex="-1" aria-labelledby="tituloGestion-{{ pedido.id_pedido }}" aria-hidden="true">
-<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-    <div class="modal-header">
-        <h2 class="modal-title fs-5" id="tituloGestion-{{ pedido.id_pedido }}"><i class="bi bi-tools me-2" aria-hidden="true"></i>Gestionar pedido #{{ pedido.id_pedido }}</h2>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-    </div>
-    <div class="modal-body">
-        <h3 class="h6">Información general</h3>
-        <div class="row g-3 mb-4">
-            <div class="col-md-6"><strong>Cliente</strong><div>{{ ((pedido.nombres or '') ~ ' ' ~ (pedido.apellidos or ''))|trim or pedido.usuario }}</div><div class="small text-muted">{{ pedido.correo or 'Correo no registrado' }}</div></div>
-            <div class="col-md-6"><strong>Servicio</strong><div>{{ pedido.servicio_nombre or 'Servicio no disponible' }}</div><div class="small text-muted">Solicitud: {{ pedido.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</div></div>
-        </div>
-        <div class="accordion" id="secciones-{{ pedido.id_pedido }}">
-<div class="accordion-item">
- <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#estados-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="estados-{{ pedido.id_pedido }}">Estado y seguimiento</button></h3>
- <div id="estados-{{ pedido.id_pedido }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body">        <section class="border rounded p-3 mb-3">
-            <h3 class="h6">Estado actual: <span class="badge {{ colores_pedido.get(pedido.estado, 'bg-secondary') }}">{{ pedido.estado }}</span></h3>
-            {% if transiciones_pedido.get(pedido.estado) and not pedido.id_factura %}
-            <form method="POST" action="{{ url_for('actualizar_estado_pedido', id=pedido.id_pedido) }}" class="row g-2 align-items-end">
-                {{ estado_form.hidden_tag() }}
-                <div class="col-md-8"><label class="form-label small" for="estado-{{ pedido.id_pedido }}">Siguiente estado</label>
-                    <select id="estado-{{ pedido.id_pedido }}" name="estado" class="form-select" required>
-                        <option value="{{ pedido.estado }}" selected>{{ pedido.estado }}</option>
-                        {% for siguiente in transiciones_pedido[pedido.estado] %}
-                        {% if siguiente != 'En revisión' or (pedido.anticipo_solicitado and pedido.anticipo_pagado) %}<option value="{{ siguiente }}">{{ siguiente }}</option>{% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4"><button type="submit" class="btn btn-sm btn-primary">Actualizar estado</button></div>
-            </form>
-            {% else %}<p class="small text-muted mb-0">Estado cerrado. No admite cambios de estado.</p>{% endif %}
-            <div class="border-top mt-3 pt-3 d-flex flex-wrap align-items-center gap-2">
-                <span>Anticipo: <span class="badge {{ 'bg-success' if pedido.anticipo_pagado else 'bg-warning text-dark' }}">{{ 'Confirmado' if pedido.anticipo_pagado else 'Pendiente' if pedido.anticipo_solicitado else 'No solicitado' }}</span></span>
-                {% if pedido.estado in ('Solicitado', 'Pendiente de anticipo') and not pedido.id_factura %}
-                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAnticipo" data-pagado="{{ 'true' if pedido.anticipo_pagado else 'false' }}" data-action="{{ url_for('registrar_anticipo', id=pedido.id_pedido) }}">Registrar anticipo</button>
-                {% endif %}
+<div class="modal fade" id="gestionar-{{ pedido.id_pedido }}" tabindex="-1"
+    aria-labelledby="tituloGestion-{{ pedido.id_pedido }}" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="tituloGestion-{{ pedido.id_pedido }}"><i class="bi bi-tools me-2"
+                        aria-hidden="true"></i>Gestionar pedido #{{ pedido.id_pedido }}</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-                            <div class="border-top mt-3 pt-3">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#historial-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="historial-{{ pedido.id_pedido }}">Ver seguimiento</button>
-                        <div class="collapse mt-3" id="historial-{{ pedido.id_pedido }}" data-historial-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1) }}"><div data-historial-contenido aria-live="polite"></div></div>
-                    </div>
-        </section>
-</div></div>
-</div>
-
-            <div class="accordion-item">
-                <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#equipo-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="equipo-{{ pedido.id_pedido }}"><i class="bi bi-laptop me-2" aria-hidden="true"></i>Equipo: {{ pedido.equipo }}</button></h3>
-                <div id="equipo-{{ pedido.id_pedido }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body">
-                    <form method="POST" class="formulario-validacion" action="{{ url_for('corregir_equipo_pedido', id=pedido.id_pedido) }}">
-                        {{ equipo_form.hidden_tag() }}
-                        <div class="row g-3">
-                            <div class="col-md-6"><label class="form-label" for="dato-equipo-{{ pedido.id_pedido }}">Equipo</label>{{ equipo_form.equipo(class="form-control", id='dato-equipo-' ~ pedido.id_pedido, value=pedido.equipo) }}</div>
-                            <div class="col-md-6"><label class="form-label" for="dato-modelo-{{ pedido.id_pedido }}">Modelo (opcional)</label>{{ equipo_form.modelo(class="form-control", id='dato-modelo-' ~ pedido.id_pedido, value=pedido.modelo or '') }}</div>
-                            <div class="col-12"><label class="form-label" for="descripcion-{{ pedido.id_pedido }}">Descripción del problema</label><textarea class="form-control" id="descripcion-{{ pedido.id_pedido }}" name="descripcion" rows="3" maxlength="2000" required>{{ pedido.descripcion }}</textarea></div>
+            <div class="modal-body">
+                <h3 class="h6">Información general</h3>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6"><strong>Cliente</strong>
+                        <div>{{ ((pedido.nombres or '') ~ ' ' ~ (pedido.apellidos or ''))|trim or pedido.usuario }}
                         </div>
-                        <p class="small text-muted mt-3">La corrección queda auditada. Las facturas emitidas conservan sus datos históricos.</p>
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Guardar corrección</button>
-                    </form>
-                </div></div>
+                        <div class="small text-muted">{{ pedido.correo or 'Correo no registrado' }}</div>
+                    </div>
+                    <div class="col-md-6"><strong>Servicio</strong>
+                        <div>{{ pedido.servicio_nombre or 'Servicio no disponible' }}</div>
+                        <div class="small text-muted">Solicitud: {{ pedido.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion" id="secciones-{{ pedido.id_pedido }}">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#estados-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="estados-{{ pedido.id_pedido }}">Estado y
+                                seguimiento</button></h3>
+                        <div id="estados-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">
+                                <section class="border rounded p-3 mb-3">
+                                    <h3 class="h6">Estado actual: <span
+                                            class="badge {{ colores_pedido.get(pedido.estado, 'bg-secondary') }}">{{
+                                            pedido.estado }}</span></h3>
+                                    {% if transiciones_pedido.get(pedido.estado) %}
+                                    <form method="POST"
+                                        action="{{ url_for('actualizar_estado_pedido', id=pedido.id_pedido) }}"
+                                        class="row g-2 align-items-end">
+                                        {{ estado_form.hidden_tag() }}
+                                        <div class="col-md-8"><label class="form-label small"
+                                                for="estado-{{ pedido.id_pedido }}">Siguiente estado</label>
+                                            <select id="estado-{{ pedido.id_pedido }}" name="estado" class="form-select"
+                                                required>
+                                                <option value="{{ pedido.estado }}" selected>{{ pedido.estado }}
+                                                </option>
+                                                {% for siguiente in transiciones_pedido[pedido.estado] %}
+                                                {% if (siguiente != 'En reparación' or pedido.pago.anticipo_confirmado)
+                                                and (siguiente != 'Entregado' or pedido.pago.pago_completo) %}<option
+                                                    value="{{ siguiente }}">{{ siguiente }}</option>{% endif %}
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4"><button type="submit"
+                                                class="btn btn-sm btn-primary">Actualizar estado</button></div>
+                                    </form>
+                                    {% else %}<p class="small text-muted mb-0">Estado cerrado. No admite cambios de
+                                        estado.</p>{% endif %}
+                                    <div class="border-top mt-3 pt-3">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="collapse" data-bs-target="#historial-{{ pedido.id_pedido }}"
+                                            aria-expanded="false" aria-controls="historial-{{ pedido.id_pedido }}">Ver
+                                            seguimiento</button>
+                                        <div class="collapse mt-3" id="historial-{{ pedido.id_pedido }}"
+                                            data-historial-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1) }}">
+                                            <div data-historial-contenido aria-live="polite"></div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#equipo-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="equipo-{{ pedido.id_pedido }}"><i
+                                    class="bi bi-laptop me-2" aria-hidden="true"></i>Equipo: {{ pedido.equipo
+                                }}</button></h3>
+                        <div id="equipo-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">
+                                <form method="POST" class="formulario-validacion"
+                                    action="{{ url_for('corregir_equipo_pedido', id=pedido.id_pedido) }}">
+                                    {{ equipo_form.hidden_tag() }}
+                                    <div class="row g-3">
+                                        <div class="col-md-6"><label class="form-label"
+                                                for="dato-equipo-{{ pedido.id_pedido }}">Equipo</label>{{
+                                            equipo_form.equipo(class="form-control", id='dato-equipo-' ~
+                                            pedido.id_pedido, value=pedido.equipo) }}</div>
+                                        <div class="col-md-6"><label class="form-label"
+                                                for="dato-modelo-{{ pedido.id_pedido }}">Modelo (opcional)</label>{{
+                                            equipo_form.modelo(class="form-control", id='dato-modelo-' ~
+                                            pedido.id_pedido, value=pedido.modelo or '') }}</div>
+                                        <div class="col-12"><label class="form-label"
+                                                for="descripcion-{{ pedido.id_pedido }}">Descripción del
+                                                problema</label><textarea class="form-control"
+                                                id="descripcion-{{ pedido.id_pedido }}" name="descripcion" rows="3"
+                                                maxlength="2000" required>{{ pedido.descripcion }}</textarea></div>
+                                    </div>
+                                    <p class="small text-muted mt-3">La corrección queda auditada. Las facturas emitidas
+                                        conservan sus datos históricos.</p>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar
+                                        corrección</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#tecnica-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="tecnica-{{ pedido.id_pedido }}">Información
+                                técnica</button></h3>
+                        <div id="tecnica-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">
+                                <p class="small text-muted">Información interna de PC-Fix. No se publica en el
+                                    seguimiento ni en la factura.</p>
+                                <form method="POST"
+                                    action="{{ url_for('guardar_detalle_servicio', id=pedido.id_pedido) }}">
+                                    {{ tecnico_form.hidden_tag() }}
+                                    {% for campo in (tecnico_form.diagnostico, tecnico_form.trabajo_realizado,
+                                    tecnico_form.repuestos, tecnico_form.recomendaciones) %}
+                                    <div class="mb-3"><label class="form-label"
+                                            for="{{ campo.name }}-{{ pedido.id_pedido }}">{{ campo.label.text }}</label>
+                                        <textarea class="form-control" name="{{ campo.name }}"
+                                            id="{{ campo.name }}-{{ pedido.id_pedido }}" rows="3"
+                                            maxlength="10000">{{ pedido[campo.name] or '' }}</textarea>
+                                    </div>
+                                    {% endfor %}
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar información
+                                        técnica</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#notas-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="notas-{{ pedido.id_pedido }}"><i
+                                    class="bi bi-chat-left-text me-2" aria-hidden="true"></i>Observaciones</button></h3>
+                        <div id="notas-{{ pedido.id_pedido }}"
+                            data-historial-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1, seccion='observaciones') }}"
+                            class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">
+                                <form method="POST"
+                                    action="{{ url_for('agregar_observacion_pedido', id=pedido.id_pedido) }}">
+                                    {{ observacion_form.hidden_tag() }}
+                                    <label class="form-label" for="nota-{{ pedido.id_pedido }}">Añadir
+                                        observación</label>
+                                    <textarea name="texto" id="nota-{{ pedido.id_pedido }}" class="form-control mb-2"
+                                        rows="3" maxlength="2000" required></textarea>
+                                    <div class="form-check mb-2"><input type="checkbox" class="form-check-input"
+                                            name="visible_cliente" id="visible-{{ pedido.id_pedido }}" value="y"><label
+                                            class="form-check-label" for="visible-{{ pedido.id_pedido }}">Visible para
+                                            el cliente</label></div>
+                                    <p class="small text-muted">Por defecto, la observación es interna. Las notas
+                                        anteriores se conservan.</p>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar
+                                        observación</button>
+                                </form>
+                                <div data-historial-contenido aria-live="polite" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#factura-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="factura-{{ pedido.id_pedido }}"><i
+                                    class="bi bi-receipt me-2" aria-hidden="true"></i>Facturación</button></h3>
+                        <div id="factura-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">
+                                {% if pedido.id_factura %}
+                                <p>Factura: {{ pedido.factura_numero }} · {{ pedido.factura_estado }}</p><a
+                                    href="{{ url_for('descargar_factura', id=pedido.id_factura) }}"
+                                    class="btn btn-sm btn-outline-primary">Ver PDF</a>
+                                {% elif pedido.solicita_factura and pedido.pago.pago_completo and pedido.estado !=
+                                'Cancelado' %}
+                                <p>Factura: Solicitada</p>
+                                <form id="form-emision-{{ pedido.id_pedido }}" method="POST"
+                                    action="{{ url_for('emitir_factura', id=pedido.id_pedido) }}">
+                                    {{ emitir_form.hidden_tag() }}
+                                    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal"
+                                        data-bs-target="#modalConfirmarEmision"
+                                        data-form-id="form-emision-{{ pedido.id_pedido }}">Emitir factura</button>
+                                </form>
+                                {% else %}<p class="mb-0">Factura: {{ 'Solicitada · Disponible al confirmar el pago
+                                    total' if pedido.solicita_factura else 'No solicitada' }}</p>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button type="button" class="accordion-button collapsed"
+                                data-bs-toggle="collapse" data-bs-target="#garantia-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="garantia-{{ pedido.id_pedido }}">Garantía</button>
+                        </h3>
+                        <div id="garantia-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}">
+                            <div class="accordion-body">{% include "components/garantia_pedido.html" %}</div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header"><button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#pagos-{{ pedido.id_pedido }}"
+                                aria-expanded="false" aria-controls="pagos-{{ pedido.id_pedido }}">Pagos · {{
+                                pedido.pago.estado }}</button></h3>
+                        <div id="pagos-{{ pedido.id_pedido }}" class="accordion-collapse collapse"
+                            data-bs-parent="#secciones-{{ pedido.id_pedido }}"
+                            data-historial-url="{{ url_for('ver_pagos', id=pedido.id_pedido, modal=1) }}">
+                            <div class="accordion-body" data-historial-contenido aria-live="polite"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
-<div class="accordion-item">
- <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#tecnica-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="tecnica-{{ pedido.id_pedido }}">Información técnica</button></h3>
- <div id="tecnica-{{ pedido.id_pedido }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body"><p class="small text-muted">Información interna de PC-Fix. No se publica en el seguimiento ni en la factura.</p>
-<form method="POST" action="{{ url_for('guardar_detalle_servicio', id=pedido.id_pedido) }}">
-    {{ tecnico_form.hidden_tag() }}
-    {% for campo in (tecnico_form.diagnostico, tecnico_form.trabajo_realizado, tecnico_form.repuestos, tecnico_form.recomendaciones) %}
-    <div class="mb-3"><label class="form-label" for="{{ campo.name }}-{{ pedido.id_pedido }}">{{ campo.label.text }}</label>
-    <textarea class="form-control" name="{{ campo.name }}" id="{{ campo.name }}-{{ pedido.id_pedido }}" rows="3" maxlength="10000">{{ pedido[campo.name] or '' }}</textarea></div>
-    {% endfor %}
-    <button type="submit" class="btn btn-sm btn-outline-primary">Guardar información técnica</button>
-</form></div></div>
-</div>
-            <div class="accordion-item">
-                <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#notas-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="notas-{{ pedido.id_pedido }}"><i class="bi bi-chat-left-text me-2" aria-hidden="true"></i>Observaciones</button></h3>
-                <div id="notas-{{ pedido.id_pedido }}" data-historial-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1, seccion='observaciones') }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body">
-                    <form method="POST" action="{{ url_for('agregar_observacion_pedido', id=pedido.id_pedido) }}">
-                        {{ observacion_form.hidden_tag() }}
-                        <label class="form-label" for="nota-{{ pedido.id_pedido }}">Añadir observación</label>
-                        <textarea name="texto" id="nota-{{ pedido.id_pedido }}" class="form-control mb-2" rows="3" maxlength="2000" required></textarea>
-                        <div class="form-check mb-2"><input type="checkbox" class="form-check-input" name="visible_cliente" id="visible-{{ pedido.id_pedido }}" value="y"><label class="form-check-label" for="visible-{{ pedido.id_pedido }}">Visible para el cliente</label></div>
-                        <p class="small text-muted">Por defecto, la observación es interna. Las notas anteriores se conservan.</p>
-                        <button type="submit" class="btn btn-sm btn-outline-primary">Guardar observación</button>
-                    </form>
-                    <div data-historial-contenido aria-live="polite" class="mt-3"></div>
-                </div></div>
+            <div class="modal-footer justify-content-between">
+                {% if pedido.estado not in ('Entregado', 'Cancelado') and not pedido.id_factura %}
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                    data-bs-target="#cancelarPedido"
+                    data-action="{{ url_for('cancelar_pedido_admin', id=pedido.id_pedido) }}">Cancelar pedido</button>
+                {% endif %}
+                <button type="button" class="btn btn-secondary ms-auto" data-bs-dismiss="modal">Cerrar</button>
             </div>
-            <div class="accordion-item">
-                <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#factura-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="factura-{{ pedido.id_pedido }}"><i class="bi bi-receipt me-2" aria-hidden="true"></i>Facturación</button></h3>
-                <div id="factura-{{ pedido.id_pedido }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body">
-                    {% if pedido.id_factura %}
-                    <p>Factura: {{ pedido.factura_numero }} · {{ pedido.factura_estado }}</p><a href="{{ url_for('descargar_factura', id=pedido.id_factura) }}" class="btn btn-sm btn-outline-primary">Ver PDF</a>
-                    {% elif pedido.solicita_factura and pedido.estado == 'Entregado' %}
-                    <p>Factura: Solicitada</p>
-                    <form id="form-emision-{{ pedido.id_pedido }}" method="POST" action="{{ url_for('emitir_factura', id=pedido.id_pedido) }}">
-                        {{ emitir_form.hidden_tag() }}
-                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalConfirmarEmision" data-form-id="form-emision-{{ pedido.id_pedido }}">Emitir factura</button>
-                    </form>
-                    {% else %}<p class="mb-0">Factura: {{ 'Solicitada · Disponible al entregar' if pedido.solicita_factura else 'No solicitada' }}</p>{% endif %}
-                </div></div>
-            </div>
-<div class="accordion-item">
- <h3 class="accordion-header"><button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#garantia-{{ pedido.id_pedido }}" aria-expanded="false" aria-controls="garantia-{{ pedido.id_pedido }}">Garantía</button></h3>
- <div id="garantia-{{ pedido.id_pedido }}" class="accordion-collapse collapse" data-bs-parent="#secciones-{{ pedido.id_pedido }}"><div class="accordion-body">{% include "components/garantia_pedido.html" %}</div></div>
-</div>
         </div>
     </div>
-    <div class="modal-footer justify-content-between">
-        {% if pedido.estado not in ('Entregado', 'Cancelado') and not pedido.id_factura %}
-        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelarPedido" data-action="{{ url_for('cancelar_pedido_admin', id=pedido.id_pedido) }}">Cancelar pedido</button>
-        {% endif %}
-        <button type="button" class="btn btn-secondary ms-auto" data-bs-dismiss="modal">Cerrar</button>
-    </div>
-</div></div>
 </div>

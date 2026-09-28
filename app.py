@@ -1,9 +1,24 @@
+from finanzas import IVA_PREDETERMINADO, validar_tarifa, importes
+from pagos import registrar_rutas_pagos, resumen_pago, solicitar_anticipo
+from forms.producto_form import separar_duracion
+from conexion.bootstrap_admin import crear_admin_desde_entorno
+from biblioteca import opciones_imagenes, resolver_imagen, registrar_biblioteca
+from forms.imagen_servicio_form import ImagenServicioForm
 from forms.detalle_servicio_form import DetalleServicioForm
 from forms.cancelacion_form import ObservacionPedidoForm
 from forms.equipo_form import EquipoPedidoForm
 from html import escape
-from forms.cancelacion_form import CancelacionForm, AnticipoForm, MOTIVOS_CLIENTE, MOTIVOS_ADMIN
-from forms.pedido_estado_form import TRANSICIONES_PEDIDO, COLORES_PEDIDO, mensaje_estado_pedido
+from forms.cancelacion_form import (
+    CancelacionForm,
+    AnticipoForm,
+    MOTIVOS_CLIENTE,
+    MOTIVOS_ADMIN,
+)
+from forms.pedido_estado_form import (
+    TRANSICIONES_PEDIDO,
+    COLORES_PEDIDO,
+    mensaje_estado_pedido,
+)
 from forms.pedido_form import EditarPedidoForm
 from functools import wraps
 
@@ -82,6 +97,18 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
+app.config["IVA_RATE"] = validar_tarifa(os.getenv("IVA_RATE", IVA_PREDETERMINADO))
+for clave_pago in (
+    "PAYMENT_BANK",
+    "PAYMENT_ACCOUNT_TYPE",
+    "PAYMENT_ACCOUNT_NUMBER",
+    "PAYMENT_ACCOUNT_HOLDER",
+):
+    app.config[clave_pago] = os.getenv(clave_pago, "")
+app.jinja_env.globals["precio_con_iva"] = lambda precio: importes(
+    precio, app.config["IVA_RATE"]
+)["total"]
+
 
 app.jinja_env.globals.update(
     transiciones_pedido=TRANSICIONES_PEDIDO,
@@ -202,6 +229,7 @@ def guardar_imagen_perfil(archivo):
 # Inicializar PostgreSQL y cargar sql/esquema.sql
 try:
     inicializar_base_datos()
+    crear_admin_desde_entorno(obtener_conexion)
 except Exception as err:
     print(f"[AVISO INICIO] Error al inicializar base de datos: {err}")
 
@@ -227,44 +255,7 @@ def obtener_opciones_proveedores():
 
 
 def obtener_imagenes_servicios():
-    """
-    Obtiene automáticamente las imágenes disponibles
-    dentro de static/img.
-
-    Solo se incluyen archivos cuyo nombre empiece por
-    'servicio-' para evitar mostrar imágenes como favicon,
-    fotografías del equipo, encabezados u otros recursos.
-    """
-
-    carpeta_imagenes = os.path.join(
-        app.root_path,
-        "static",
-        "img",
-    )
-
-    extensiones_permitidas = (
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-    )
-
-    opciones = []
-
-    # Verifica que la carpeta exista antes de leerla.
-    if not os.path.exists(carpeta_imagenes):
-        return opciones
-
-    for archivo in os.listdir(carpeta_imagenes):
-
-        # Solo se aceptan imágenes destinadas a servicios.
-        if archivo.lower().startswith("servicio-") and archivo.lower().endswith(
-            extensiones_permitidas
-        ):
-            opciones.append((archivo, archivo))
-
-    # Ordenar alfabéticamente los archivos.
-    return sorted(opciones)
+    return opciones_imagenes(app.root_path, obtener_conexion)
 
 
 # ==========================================================
@@ -353,7 +344,9 @@ def cargar_opciones_servicios():
     """Carga los servicios actuales para los SelectField de los pedidos."""
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT id_servicio, nombre FROM servicios WHERE activo = TRUE AND archivado = FALSE ORDER BY nombre ASC")
+    cursor.execute(
+        "SELECT id_servicio, nombre FROM servicios WHERE activo = TRUE AND archivado = FALSE ORDER BY nombre ASC"
+    )
     opciones = [
         (servicio["id_servicio"], servicio["nombre"]) for servicio in cursor.fetchall()
     ]
@@ -731,9 +724,14 @@ def nuevo_pedido():
                 (form.servicio.data,),
             )
             if not cursor.fetchone():
-                flash("El servicio ya no está disponible para nuevos pedidos.", "warning")
+                flash(
+                    "El servicio ya no está disponible para nuevos pedidos.", "warning"
+                )
                 return redirect(url_for("nuevo_pedido"))
-            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
+                "SELECT set_config('pcfix.usuario_actor', %s, TRUE)",
+                (str(current_user.id),),
+            )
             cursor.execute(
                 """
                 INSERT INTO pedidos (id_usuario, id_servicio, equipo, modelo, descripcion, solicita_factura,
@@ -744,7 +742,7 @@ def nuevo_pedido():
                     current_user.id,
                     form.servicio.data,
                     form.equipo.data,
-                    (form.modelo.data or '').strip() or None,
+                    (form.modelo.data or "").strip() or None,
                     form.descripcion.data,
                     form.solicita_factura.data,
                 ),
@@ -772,7 +770,7 @@ def mis_pedidos():
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
         """
-        SELECT p.id_pedido, p.equipo, p.modelo, p.descripcion, p.estado,
+        SELECT p.id_pedido, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
                p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
                (clock_timestamp()::timestamp BETWEEN p.fecha_solicitud
                 AND p.fecha_solicitud + INTERVAL '5 minutes') AS dentro_plazo,
@@ -790,20 +788,25 @@ def mis_pedidos():
         (current_user.id,) + (patron,) * 5,
     )
     pedidos = cursor.fetchall()
+    for pedido in pedidos:
+        pedido["pago"] = resumen_pago(cursor, pedido)
     cursor.execute(
         """SELECT p.id_pedido, COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
            FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
            WHERE p.id_usuario = %s AND p.estado = 'Listo'
-           ORDER BY p.fecha_actualizacion DESC""", (current_user.id,)
+           ORDER BY p.fecha_actualizacion DESC""",
+        (current_user.id,),
     )
     pedidos_listos = cursor.fetchall()
     cursor.close()
     conn.close()
     return render_template(
         "mis_pedidos.html",
-        pedidos=pedidos, pedidos_listos=pedidos_listos,
+        pedidos=pedidos,
+        pedidos_listos=pedidos_listos,
         q=q,
-        solicitar_factura_form=PedidoAccionForm(), cancelar_form=crear_cancelacion_form(),
+        solicitar_factura_form=PedidoAccionForm(),
+        cancelar_form=crear_cancelacion_form(),
         active="mis_pedidos",
     )
 
@@ -835,20 +838,35 @@ def seguimiento_pedido(id):
                    LEFT JOIN usuarios u ON u.id_usuario = h.id_usuario_actor
                    JOIN pedidos p ON p.id_pedido = h.id_pedido
                    WHERE h.id_pedido = %s AND (%s OR p.id_usuario = %s)
-                   ORDER BY h.fecha_hora, h.id_historial""", (current_user.rol == "admin",) * 3 + (id, current_user.rol == "admin", current_user.id)
+                   ORDER BY h.fecha_hora, h.id_historial""",
+                (current_user.rol == "admin",) * 3
+                + (id, current_user.rol == "admin", current_user.id),
             )
             historial = cursor.fetchall()
             cursor.execute(
                 """SELECT o.texto, o.fecha_hora, o.visible_cliente, CASE WHEN %s THEN u.usuario END AS actor
                    FROM observaciones_pedidos o LEFT JOIN usuarios u ON u.id_usuario=o.id_usuario_actor
                    WHERE o.id_pedido=%s AND (%s OR o.visible_cliente=TRUE)
-                   ORDER BY o.fecha_hora, o.id_observacion""", (current_user.rol == "admin", id, current_user.rol == "admin")
+                   ORDER BY o.fecha_hora, o.id_observacion""",
+                (current_user.rol == "admin", id, current_user.rol == "admin"),
             )
             observaciones = cursor.fetchall()
     finally:
         conn.close()
     return render_template(
-        ("components/observaciones_pedido.html" if request.args.get("seccion") == "observaciones" else "components/linea_tiempo.html") if request.args.get("modal") == "1" else "seguimiento_pedido.html", pedido=pedido, historial=historial, observaciones=observaciones, active="mis_pedidos"
+        (
+            (
+                "components/observaciones_pedido.html"
+                if request.args.get("seccion") == "observaciones"
+                else "components/linea_tiempo.html"
+            )
+            if request.args.get("modal") == "1"
+            else "seguimiento_pedido.html"
+        ),
+        pedido=pedido,
+        historial=historial,
+        observaciones=observaciones,
+        active="mis_pedidos",
     )
 
 
@@ -889,7 +907,15 @@ def editar_pedido(id):
                 (pedido["id_servicio"],),
             )
             form.servicio.choices = [
-                (r["id_servicio"], r["nombre"] + (" (Archivado, actual)" if r["archivado"] else " (En pausa, actual)" if not r["activo"] else ""))
+                (
+                    r["id_servicio"],
+                    r["nombre"]
+                    + (
+                        " (Archivado, actual)"
+                        if r["archivado"]
+                        else " (En pausa, actual)" if not r["activo"] else ""
+                    ),
+                )
                 for r in cursor.fetchall()
             ]
             if request.method == "GET":
@@ -914,8 +940,15 @@ def editar_pedido(id):
                                fecha_actualizacion = CURRENT_TIMESTAMP
                            WHERE id_pedido = %s AND id_usuario = %s AND estado = 'Solicitado'
                              AND NOT EXISTS (SELECT 1 FROM facturas WHERE id_pedido = %s)""",
-                        (form.servicio.data, form.equipo.data, (form.modelo.data or '').strip() or None, form.descripcion.data,
-                         id, current_user.id, id),
+                        (
+                            form.servicio.data,
+                            form.equipo.data,
+                            (form.modelo.data or "").strip() or None,
+                            form.descripcion.data,
+                            id,
+                            current_user.id,
+                            id,
+                        ),
                     )
                     conn.commit()
                     flash("Pedido actualizado correctamente.", "success")
@@ -937,7 +970,10 @@ def crear_cancelacion_form(admin=False):
 def procesar_cancelacion(id, admin=False):
     form = crear_cancelacion_form(admin)
     if not form.validate_on_submit():
-        abort(400, description="Selecciona un motivo válido y completa la observación si eliges Otro.")
+        abort(
+            400,
+            description="Selecciona un motivo válido y completa la observación si eliges Otro.",
+        )
     destino = "pedidos_admin" if admin else "mis_pedidos"
     conn = obtener_conexion()
     try:
@@ -947,7 +983,8 @@ def procesar_cancelacion(id, admin=False):
                    (clock_timestamp()::timestamp BETWEEN fecha_solicitud
                     AND fecha_solicitud + INTERVAL '5 minutes') AS dentro_plazo
                    FROM pedidos p WHERE id_pedido = %s AND (%s OR id_usuario = %s)
-                   FOR UPDATE""", (id, admin, current_user.id)
+                   FOR UPDATE""",
+                (id, admin, current_user.id),
             )
             pedido = cursor.fetchone()
             if not pedido:
@@ -955,16 +992,34 @@ def procesar_cancelacion(id, admin=False):
             cursor.execute("SELECT 1 FROM facturas WHERE id_pedido = %s", (id,))
             facturado = cursor.fetchone() is not None
             permitido = (
-                pedido["estado"] not in ("Entregado", "Cancelado") if admin
+                pedido["estado"] not in ("Entregado", "Cancelado")
+                if admin
                 else pedido["estado"] == "Solicitado"
             )
             if facturado or not permitido:
                 flash(MENSAJE_PEDIDO_BLOQUEADO, "warning")
                 return redirect(url_for(destino))
+            if not admin:
+                cursor.execute(
+                    "SELECT EXISTS(SELECT 1 FROM pagos WHERE id_pedido=%s AND estado='Confirmado') AS pago_confirmado",
+                    (id,),
+                )
+                if cursor.fetchone()["pago_confirmado"]:
+                    flash(
+                        "Ya existe un pago confirmado. Comunícate con administración para solicitar la cancelación.",
+                        "warning",
+                    )
+                    return redirect(url_for(destino))
             if not admin and not pedido["dentro_plazo"]:
-                flash("Solo puedes cancelar durante los primeros 5 minutos desde la creación del pedido.", "warning")
+                flash(
+                    "Solo puedes cancelar durante los primeros 5 minutos desde la creación del pedido.",
+                    "warning",
+                )
                 return redirect(url_for(destino))
-            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
+                "SELECT set_config('pcfix.usuario_actor', %s, TRUE)",
+                (str(current_user.id),),
+            )
             cursor.execute(
                 """UPDATE pedidos SET estado='Cancelado', motivo_cancelacion=%s,
                           observacion=%s, cancelado_por=%s, fecha_cancelacion=CURRENT_TIMESTAMP,
@@ -972,8 +1027,13 @@ def procesar_cancelacion(id, admin=False):
                    WHERE id_pedido=%s
                      AND (%s OR clock_timestamp()::timestamp BETWEEN fecha_solicitud
                           AND fecha_solicitud + INTERVAL '5 minutes')""",
-                (form.motivo.data, (form.observacion.data or "").strip() or None,
-                 current_user.id, id, admin),
+                (
+                    form.motivo.data,
+                    (form.observacion.data or "").strip() or None,
+                    current_user.id,
+                    id,
+                    admin,
+                ),
             )
             if cursor.rowcount == 0:
                 flash("La ventana de 5 minutos para cancelar ha finalizado.", "warning")
@@ -1006,27 +1066,16 @@ def registrar_anticipo(id):
     conn = obtener_conexion()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT estado, anticipo_pagado FROM pedidos WHERE id_pedido=%s FOR UPDATE", (id,))
-            pedido = cursor.fetchone()
-            if not pedido:
-                abort(404)
-            cursor.execute("SELECT 1 FROM facturas WHERE id_pedido=%s", (id,))
-            if pedido["estado"] not in ("Solicitado", "Pendiente de anticipo") or cursor.fetchone():
-                flash("No se puede modificar el anticipo en este estado.", "warning")
+            try:
+                solicitar_anticipo(cursor, id, app.config["IVA_RATE"])
+            except ValueError as error:
+                flash(str(error), "warning")
                 return redirect(url_for("pedidos_admin"))
-            if pedido["anticipo_pagado"] and not form.pagado.data:
-                flash("Un anticipo confirmado no puede desmarcarse desde este formulario.", "warning")
-                return redirect(url_for("pedidos_admin"))
-            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
-            cursor.execute(
-                """UPDATE pedidos SET anticipo_solicitado=TRUE, anticipo_pagado=%s,
-                          estado='Pendiente de anticipo', fecha_actualizacion=CURRENT_TIMESTAMP,
-                          observacion=%s
-                   WHERE id_pedido=%s""",
-                (form.pagado.data, "Anticipo solicitado; pago confirmado." if form.pagado.data else "Anticipo solicitado.", id),
-            )
         conn.commit()
-        flash("Información del anticipo actualizada.", "success")
+        flash(
+            "Anticipo solicitado. Se requiere un comprobante y su verificación administrativa.",
+            "success",
+        )
     finally:
         conn.close()
     return redirect(url_for("pedidos_admin"))
@@ -1074,7 +1123,8 @@ def pedidos_admin():
         estado = ""
     factura = request.args.get("factura", "")
     facturas_filtro = {
-        "": "TRUE", "no_solicitada": "p.solicita_factura = FALSE AND f.id_factura IS NULL",
+        "": "TRUE",
+        "no_solicitada": "p.solicita_factura = FALSE AND f.id_factura IS NULL",
         "solicitada": "p.solicita_factura = TRUE AND f.id_factura IS NULL",
         "emitida": "f.id_factura IS NOT NULL",
     }
@@ -1087,14 +1137,17 @@ def pedidos_admin():
         fecha = ""
         fecha_param = None
     orden = request.args.get("orden", "recientes")
-    ordenes = {"recientes": "p.fecha_solicitud DESC, p.id_pedido DESC",
-               "antiguos": "p.fecha_solicitud ASC, p.id_pedido ASC"}
+    ordenes = {
+        "recientes": "p.fecha_solicitud DESC, p.id_pedido DESC",
+        "antiguos": "p.fecha_solicitud ASC, p.id_pedido ASC",
+    }
     if orden not in ordenes:
         orden = "recientes"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("""
-        SELECT p.id_pedido, p.equipo, p.modelo, p.descripcion, p.estado,
+    cursor.execute(
+        """
+        SELECT p.id_pedido, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
                p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion, p.anticipo_solicitado, p.anticipo_pagado,
              u.usuario, u.correo,
              pu.nombres, pu.apellidos,
@@ -1114,19 +1167,34 @@ def pedidos_admin():
                OR p.equipo ILIKE %s OR p.descripcion ILIKE %s OR p.id_pedido::text ILIKE %s)
           AND (%s = '' OR p.estado = %s)
           AND (%s::date IS NULL OR p.fecha_solicitud::date = %s::date)
-          AND (""" + facturas_filtro[factura] + """)
-        ORDER BY """ + ordenes[orden],
+          AND ("""
+        + facturas_filtro[factura]
+        + """)
+        ORDER BY """
+        + ordenes[orden],
         (f"%{q}%",) * 7 + (estado, estado, fecha_param, fecha_param),
     )
     pedidos = cursor.fetchall()
+    for pedido in pedidos:
+        pedido["pago"] = resumen_pago(cursor, pedido)
     cursor.close()
     conn.close()
     return render_template(
         "pedidos_admin.html",
-        pedidos=pedidos, q=q, estado=estado, estados=estados,
-        factura=factura, fecha=fecha, orden=orden,
-        estado_form=PedidoEstadoForm(), cancelar_form=crear_cancelacion_form(True), anticipo_form=AnticipoForm(),
-        emitir_form=EmitirFacturaForm(), equipo_form=EquipoPedidoForm(), tecnico_form=DetalleServicioForm(), observacion_form=ObservacionPedidoForm(),
+        pedidos=pedidos,
+        q=q,
+        estado=estado,
+        estados=estados,
+        factura=factura,
+        fecha=fecha,
+        orden=orden,
+        estado_form=PedidoEstadoForm(),
+        cancelar_form=crear_cancelacion_form(True),
+        anticipo_form=AnticipoForm(),
+        emitir_form=EmitirFacturaForm(),
+        equipo_form=EquipoPedidoForm(),
+        tecnico_form=DetalleServicioForm(),
+        observacion_form=ObservacionPedidoForm(),
         active="pedidos",
     )
 
@@ -1199,12 +1267,17 @@ def auditoria():
 def guardar_detalle_servicio(id):
     form = DetalleServicioForm()
     if not form.validate_on_submit():
-        flash("No se guardó la información técnica. Revisa el formulario (máximo 10000 caracteres por campo).", "warning")
+        flash(
+            "No se guardó la información técnica. Revisa el formulario (máximo 10000 caracteres por campo).",
+            "warning",
+        )
         return redirect(url_for("pedidos_admin"))
     conn = obtener_conexion()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,))
+            cursor.execute(
+                "SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,)
+            )
             if not cursor.fetchone():
                 abort(404)
             cursor.execute(
@@ -1215,8 +1288,14 @@ def guardar_detalle_servicio(id):
                        diagnostico=EXCLUDED.diagnostico, trabajo_realizado=EXCLUDED.trabajo_realizado,
                        repuestos=EXCLUDED.repuestos, recomendaciones=EXCLUDED.recomendaciones,
                        actualizado_por=EXCLUDED.actualizado_por, fecha_actualizacion=CURRENT_TIMESTAMP""",
-                (id, form.diagnostico.data, form.trabajo_realizado.data, form.repuestos.data,
-                 form.recomendaciones.data, current_user.id),
+                (
+                    id,
+                    form.diagnostico.data,
+                    form.trabajo_realizado.data,
+                    form.repuestos.data,
+                    form.recomendaciones.data,
+                    current_user.id,
+                ),
             )
         conn.commit()
         flash("Expediente técnico actualizado y auditado.", "success")
@@ -1235,19 +1314,27 @@ def agregar_observacion_pedido(id):
     conn = obtener_conexion()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,))
+            cursor.execute(
+                "SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,)
+            )
             if not cursor.fetchone():
                 abort(404)
             cursor.execute(
                 """INSERT INTO observaciones_pedidos (id_pedido,texto,id_usuario_actor,visible_cliente)
                    VALUES (%s,%s,%s,%s) RETURNING id_observacion""",
-                (id, form.texto.data.strip(), current_user.id, form.visible_cliente.data),
+                (
+                    id,
+                    form.texto.data.strip(),
+                    current_user.id,
+                    form.visible_cliente.data,
+                ),
             )
             ident = cursor.fetchone()[0]
             cursor.execute(
                 """INSERT INTO auditoria (tabla,operacion,id_registro,datos_nuevos,usuario_bd)
                    SELECT 'observaciones_pedidos','INSERT',id_observacion::text,to_jsonb(o),CURRENT_USER
-                   FROM observaciones_pedidos o WHERE id_observacion=%s""", (ident,)
+                   FROM observaciones_pedidos o WHERE id_observacion=%s""",
+                (ident,),
             )
         conn.commit()
         flash("Observación añadida al seguimiento.", "success")
@@ -1264,7 +1351,10 @@ def corregir_equipo_pedido(id):
     conn = obtener_conexion()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT id_pedido, equipo, modelo, descripcion FROM pedidos WHERE id_pedido=%s FOR UPDATE", (id,))
+            cursor.execute(
+                "SELECT id_pedido, equipo, modelo, descripcion FROM pedidos WHERE id_pedido=%s FOR UPDATE",
+                (id,),
+            )
             pedido = cursor.fetchone()
             if not pedido:
                 abort(404)
@@ -1276,13 +1366,26 @@ def corregir_equipo_pedido(id):
                 cursor.execute(
                     """UPDATE pedidos SET equipo=%s, modelo=%s, descripcion=%s, fecha_actualizacion=CURRENT_TIMESTAMP
                        WHERE id_pedido=%s""",
-                    (form.equipo.data, (form.modelo.data or "").strip() or None,
-                     (form.descripcion.data or "").strip() if "descripcion" in request.form else pedido["descripcion"], id),
+                    (
+                        form.equipo.data,
+                        (form.modelo.data or "").strip() or None,
+                        (
+                            (form.descripcion.data or "").strip()
+                            if "descripcion" in request.form
+                            else pedido["descripcion"]
+                        ),
+                        id,
+                    ),
                 )
                 conn.commit()
-                flash("Datos del equipo corregidos. Las facturas emitidas conservan sus datos históricos.", "success")
+                flash(
+                    "Datos del equipo corregidos. Las facturas emitidas conservan sus datos históricos.",
+                    "success",
+                )
                 return redirect(url_for("pedidos_admin"))
-        return render_template("corregir_equipo_pedido.html", form=form, pedido=pedido, active="pedidos")
+        return render_template(
+            "corregir_equipo_pedido.html", form=form, pedido=pedido, active="pedidos"
+        )
     finally:
         conn.close()
 
@@ -1298,7 +1401,7 @@ def actualizar_estado_pedido(id):
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
-                "SELECT estado, anticipo_solicitado, anticipo_pagado FROM pedidos WHERE id_pedido = %s FOR UPDATE", (id,)
+                "SELECT * FROM pedidos WHERE id_pedido = %s FOR UPDATE", (id,)
             )
             pedido = cursor.fetchone()
             if not pedido:
@@ -1307,20 +1410,30 @@ def actualizar_estado_pedido(id):
             destino = form.estado.data
             if destino == actual:
                 return redirect(url_for("pedidos_admin"))
-            cursor.execute("SELECT 1 FROM facturas WHERE id_pedido = %s", (id,))
-            facturado = cursor.fetchone() is not None
-            if facturado or destino not in TRANSICIONES_PEDIDO.get(actual, ()):
-                flash("No se puede regresar a un estado anterior del pedido.", "warning")
+            if destino not in TRANSICIONES_PEDIDO.get(actual, ()):
+                flash(
+                    "No se puede regresar a un estado anterior del pedido.", "warning"
+                )
                 return redirect(url_for("pedidos_admin"))
-            if destino == "En revisión" and not (pedido["anticipo_solicitado"] and pedido["anticipo_pagado"]):
-                flash("Debes confirmar el pago del anticipo antes de iniciar la revisión.", "warning")
+            pago = resumen_pago(cursor, pedido)
+            if destino == "En reparación" and not pago["anticipo_confirmado"]:
+                flash(
+                    "Debes confirmar el anticipo o el pago completo antes de iniciar la reparación.",
+                    "warning",
+                )
                 return redirect(url_for("pedidos_admin"))
-            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            if destino == "Entregado" and not pago["pago_completo"]:
+                flash("Debes confirmar el pago completo antes de entregar.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            cursor.execute(
+                "SELECT set_config('pcfix.usuario_actor', %s, TRUE)",
+                (str(current_user.id),),
+            )
             cursor.execute(
                 """UPDATE pedidos SET estado = %s, fecha_actualizacion = CURRENT_TIMESTAMP,
-                          anticipo_solicitado = CASE WHEN %s = 'Pendiente de anticipo' THEN TRUE ELSE anticipo_solicitado END,
                           observacion = %s
-                   WHERE id_pedido = %s""", (destino, destino, (form.observacion.data or "").strip() or None, id)
+                   WHERE id_pedido = %s""",
+                (destino, (form.observacion.data or "").strip() or None, id),
             )
         conn.commit()
     finally:
@@ -1345,7 +1458,7 @@ def emitir_factura(id):
             cursor.execute(
                 """
                 SELECT p.id_pedido, p.id_usuario, p.id_servicio, p.estado,
-                       p.solicita_factura, p.equipo, p.modelo, s.nombre AS servicio_nombre, s.precio
+                       p.solicita_factura, p.equipo, p.modelo, p.subtotal, p.porcentaje_iva, p.valor_iva, p.total, p.anticipo_requerido, p.saldo_requerido, s.nombre AS servicio_nombre, s.precio
                 FROM pedidos p
                 LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
                 WHERE p.id_pedido = %s
@@ -1357,34 +1470,62 @@ def emitir_factura(id):
             if not pedido:
                 abort(404)
             # Consulta independiente después del bloqueo: ve emisiones concurrentes.
-            cursor.execute("SELECT id_factura FROM facturas WHERE id_pedido = %s", (id,))
+            cursor.execute(
+                "SELECT id_factura FROM facturas WHERE id_pedido = %s", (id,)
+            )
             if cursor.fetchone():
                 flash("Este pedido ya tiene una factura emitida.", "warning")
                 return redirect(url_for("pedidos_admin"))
-            if pedido["estado"] != "Entregado":
-                flash("La factura solo puede emitirse cuando el pedido se encuentre Entregado.", "warning")
+            if pedido["estado"] == "Cancelado":
+                flash("No se puede facturar un pedido cancelado.", "warning")
                 return redirect(url_for("pedidos_admin"))
             if not pedido["solicita_factura"]:
                 flash("El cliente todavía no ha solicitado factura.", "warning")
                 return redirect(url_for("pedidos_admin"))
+            pago = resumen_pago(cursor, pedido)
+            if not pago["pago_completo"]:
+                flash(
+                    "La factura final solo puede emitirse después de confirmar el pago total con IVA.",
+                    "warning",
+                )
+                return redirect(url_for("pedidos_admin"))
             if pedido["servicio_nombre"] is None or pedido["precio"] is None:
-                flash("El pedido no tiene un servicio con precio disponible para facturar.", "warning")
+                flash(
+                    "El pedido no tiene un servicio con precio disponible para facturar.",
+                    "warning",
+                )
                 return redirect(url_for("pedidos_admin"))
 
+            if pedido["total"] is None:
+                flash("El pedido no tiene un total de pago registrado.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            valores = pedido
+            estado_factura = "Pagada"
             numero = f"FAC-{datetime.now().strftime('%Y%m%d%H%M%S%f')}-{id}"
             cursor.execute(
                 """
                 INSERT INTO facturas (
                     numero, id_cliente, id_servicio, fecha, total, estado,
-                    id_usuario, id_pedido, servicio_nombre, equipo_nombre, equipo_modelo
+                    id_usuario, id_pedido, servicio_nombre, equipo_nombre, equipo_modelo, subtotal, porcentaje_iva, valor_iva
                 )
-                VALUES (%s, NULL, %s, CURRENT_DATE, %s, 'Pendiente', %s, %s, %s, %s, %s)
+                VALUES (%s, NULL, %s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id_pedido) WHERE id_pedido IS NOT NULL DO NOTHING
                 RETURNING id_factura
                 """,
-                (numero, pedido["id_servicio"], pedido["precio"],
-                 pedido["id_usuario"], pedido["id_pedido"], pedido["servicio_nombre"],
-                 pedido["equipo"], pedido["modelo"] or ""),
+                (
+                    numero,
+                    pedido["id_servicio"],
+                    valores["total"],
+                    estado_factura,
+                    pedido["id_usuario"],
+                    pedido["id_pedido"],
+                    pedido["servicio_nombre"],
+                    pedido["equipo"],
+                    pedido["modelo"] or "",
+                    valores["subtotal"],
+                    valores["porcentaje_iva"],
+                    valores["valor_iva"],
+                ),
             )
             emitida = cursor.fetchone()
         conn.commit()
@@ -1440,7 +1581,12 @@ def mis_facturas():
     cursor.close()
     conn.close()
     return render_template(
-        "mis_facturas.html", facturas=facturas, q=q, estado=estado, orden=orden, active="mis_facturas"
+        "mis_facturas.html",
+        facturas=facturas,
+        q=q,
+        estado=estado,
+        orden=orden,
+        active="mis_facturas",
     )
 
 
@@ -1459,9 +1605,14 @@ def descargar_factura(id):
 
     cursor.execute(
         f"""
-        SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
+         SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado, f.subtotal, f.porcentaje_iva, f.valor_iva,
                f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
                COALESCE(f.equipo_modelo, p.modelo) AS modelo,
+             COALESCE((SELECT SUM(pg.monto) FROM pagos pg WHERE pg.id_pedido=f.id_pedido
+                    AND pg.tipo_pago='anticipo' AND pg.estado='Confirmado'),0) AS anticipo_aplicado,
+             COALESCE((SELECT SUM(pg.monto) FROM pagos pg WHERE pg.id_pedido=f.id_pedido
+                    AND pg.tipo_pago IN ('saldo','total') AND pg.estado='Confirmado'),
+                   CASE WHEN f.estado='Pagada' THEN f.total ELSE 0 END) AS saldo_pagado,
                u.usuario, u.correo,
                pu.nombres, pu.apellidos,
                COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre
@@ -1538,15 +1689,18 @@ def descargar_factura(id):
 
     documento.setFont("Helvetica-Bold", 11)
     documento.drawString(72, cliente_y - 24, "DETALLE DEL SERVICIO")
-    precio = float(factura["total"] or 0)
+    precio = (
+        factura["subtotal"] if factura["subtotal"] is not None else factura["total"]
+    )
     equipo_detalle = "Equipo: " + escape(factura["equipo"] or "No especificado")
     if factura["modelo"]:
         equipo_detalle += "<br/>Modelo: " + escape(factura["modelo"])
     detalle_data = [
-        ["Servicio", "Equipo", "Cantidad", "Precio"],
+        ["Servicio", "Equipo", "Cantidad", "Precio base"],
         [
             Paragraph(
-                escape(factura["servicio_nombre"] or "Servicio no disponible"), styles["Normal"]
+                escape(factura["servicio_nombre"] or "Servicio no disponible"),
+                styles["Normal"],
             ),
             Paragraph(equipo_detalle, styles["Normal"]),
             "1",
@@ -1576,26 +1730,51 @@ def descargar_factura(id):
     detalle_y = cliente_y - 40 - detalle_altura
     detalle_tabla.drawOn(documento, 72, detalle_y)
 
-    resumen_data = [["Subtotal", f"${precio:.2f}"], ["TOTAL", f"${precio:.2f}"], ["Estado de pago", factura["estado"]]]
+    resumen_data = [
+        [
+            "Subtotal" if factura["subtotal"] is not None else "Importe histórico",
+            f"${precio:.2f}",
+        ]
+    ]
+    if factura["porcentaje_iva"] is not None:
+        resumen_data.append(
+            [
+                "IVA ("
+                + format(factura["porcentaje_iva"] * 100, ".2f").rstrip("0").rstrip(".")
+                + " %)",
+                f"${factura['valor_iva']:.2f}",
+            ]
+        )
+    else:
+        resumen_data.append(["IVA histórico", "No desglosado"])
+    resumen_data.append(["TOTAL", f"${factura['total']:.2f}"])
+    if factura["subtotal"] is not None:
+        resumen_data += [
+            ["Anticipo aplicado", f"${factura['anticipo_aplicado']:.2f}"],
+            ["Saldo pagado", f"${factura['saldo_pagado']:.2f}"],
+            ["Saldo pendiente", "$0.00"],
+        ]
+    estado_pdf = "PAGADO" if factura["estado"] == "Pagada" else factura["estado"]
+    resumen_data.append(["Estado de pago", estado_pdf])
     resumen_tabla = Table(
-        resumen_data, colWidths=[1.5 * inch, 1.2 * inch], hAlign="RIGHT"
+        resumen_data, colWidths=[1.8 * inch, 1.2 * inch], hAlign="RIGHT"
     )
     resumen_tabla.setStyle(
         TableStyle(
             [
                 ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 1), (-1, 1), 13),
-                ("TEXTCOLOR", (0, 1), (-1, 1), colors.HexColor("#112248")),
-                ("LINEABOVE", (0, 1), (-1, 1), 1, colors.HexColor("#d4af37")),
+                ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 2), (-1, 2), 13),
+                ("TEXTCOLOR", (0, 2), (-1, 2), colors.HexColor("#112248")),
+                ("LINEABOVE", (0, 2), (-1, 2), 1, colors.HexColor("#d4af37")),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
     resumen_tabla.wrapOn(documento, ancho, 70)
-    resumen_y = detalle_y - 105
-    resumen_tabla.drawOn(documento, letter[0] - 72 - 2.7 * inch, resumen_y)
+    resumen_y = detalle_y - 130
+    resumen_tabla.drawOn(documento, letter[0] - 72 - 3.0 * inch, resumen_y)
 
     garantia_nota = Paragraph(
         "<b>Garantía del servicio:</b><br/>"
@@ -1700,35 +1879,50 @@ def servicios():
     conn = obtener_conexion()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT id_proveedor, empresa FROM proveedores ORDER BY empresa")
+            cursor.execute(
+                "SELECT id_proveedor, empresa FROM proveedores ORDER BY empresa"
+            )
             proveedores_filtro = cursor.fetchall()
             if proveedor not in {r["id_proveedor"] for r in proveedores_filtro}:
                 proveedor = None
-            condicion = estados[estado] if current_user.rol == "admin" else estados["activos"]
+            condicion = (
+                estados[estado] if current_user.rol == "admin" else estados["activos"]
+            )
             if current_user.rol != "admin":
                 estado = "activos"
             cursor.execute(
                 """SELECT s.*, p.empresa AS proveedor_empresa
                    FROM servicios s LEFT JOIN proveedores p ON s.id_proveedor = p.id_proveedor
-                   WHERE (""" + condicion + """)
+                   WHERE ("""
+                + condicion
+                + """)
                      AND (%s IS NULL OR s.id_proveedor = %s)
                      AND (s.nombre ILIKE %s OR s.descripcion ILIKE %s
                           OR p.empresa ILIKE %s OR s.duracion ILIKE %s)
-                   ORDER BY """ + ordenes[orden],
+                   ORDER BY """
+                + ordenes[orden],
                 (proveedor, proveedor) + (f"%{q}%",) * 4,
             )
             servicios_db = cursor.fetchall()
     finally:
         conn.close()
     return render_template(
-        "servicios.html", active="servicios", servicios=servicios_db, q=q,
-        estado=estado, proveedor=proveedor, orden=orden,
-        proveedores_filtro=proveedores_filtro, eliminar_form=EliminarForm(),
+        "servicios.html",
+        active="servicios",
+        servicios=servicios_db,
+        q=q,
+        estado=estado,
+        proveedor=proveedor,
+        orden=orden,
+        proveedores_filtro=proveedores_filtro,
+        eliminar_form=EliminarForm(),
     )
 
 
 def nombre_servicio_duplicado(cursor, nombre, excluir=None):
-    cursor.execute("SELECT pg_advisory_xact_lock(hashtext(LOWER(BTRIM(%s))))", (nombre,))
+    cursor.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(LOWER(BTRIM(%s))))", (nombre,)
+    )
     cursor.execute(
         """SELECT archivado FROM servicios
            WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM(%s))
@@ -1742,7 +1936,8 @@ def nombre_servicio_duplicado(cursor, nombre, excluir=None):
     archivado = fila["archivado"] if isinstance(fila, dict) else fila[0]
     return (
         "Ya existe un servicio archivado con ese nombre. Puedes restaurarlo en lugar de crear uno nuevo."
-        if archivado else "Ya existe un servicio con ese nombre."
+        if archivado
+        else "Ya existe un servicio con ese nombre."
     )
 
 
@@ -1771,22 +1966,42 @@ def nuevo_servicio():
             conn.close()
             form.nombre.errors.append(duplicado)
             return render_template(
-                "formulario_producto.html", active="servicios", form=form,
+                "formulario_producto.html",
+                imagen_form=ImagenServicioForm(),
+                active="servicios",
+                form=form,
                 titulo="Nuevo Servicio",
+            )
+        try:
+            imagen, id_imagen = resolver_imagen(cursor, form.imagen.data)
+        except ValueError as error:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            form.imagen.errors.append(str(error))
+            return render_template(
+                "formulario_producto.html",
+                imagen_form=ImagenServicioForm(),
+                form=form,
+                titulo="Nuevo Servicio",
+                active="servicios",
             )
         cursor.execute(
             """
-            INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor, requiere_entrega_equipo)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor, requiere_entrega_equipo, id_imagen, duracion_cantidad, duracion_unidad)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
             (
                 form.nombre.data,
                 form.descripcion.data,
                 form.precio.data,
                 form.duracion.data,
-                form.imagen.data,
+                imagen,
                 id_prov,
                 form.requiere_entrega_equipo.data == "si",
+                id_imagen,
+                form.duracion_cantidad.data,
+                form.duracion_unidad.data,
             ),
         )
         conn.commit()
@@ -1800,6 +2015,7 @@ def nuevo_servicio():
 
     return render_template(
         "formulario_producto.html",
+        imagen_form=ImagenServicioForm(),
         active="servicios",
         form=form,
         titulo="Nuevo Servicio",
@@ -1824,22 +2040,39 @@ def editar_servicio(id):
 
     form = ProductoForm()
     form.id_proveedor.choices = obtener_opciones_proveedores()
-    if servicio["id_proveedor"] and servicio["id_proveedor"] not in dict(form.id_proveedor.choices):
-        cursor.execute("SELECT empresa FROM proveedores WHERE id_proveedor = %s", (servicio["id_proveedor"],))
+    if servicio["id_proveedor"] and servicio["id_proveedor"] not in dict(
+        form.id_proveedor.choices
+    ):
+        cursor.execute(
+            "SELECT empresa FROM proveedores WHERE id_proveedor = %s",
+            (servicio["id_proveedor"],),
+        )
         proveedor_actual = cursor.fetchone()
         if proveedor_actual:
             form.id_proveedor.choices.append(
-                (servicio["id_proveedor"], proveedor_actual["empresa"] + " (Inactivo, asignado)")
+                (
+                    servicio["id_proveedor"],
+                    proveedor_actual["empresa"] + " (Inactivo, asignado)",
+                )
             )
     form.imagen.choices = obtener_imagenes_servicios()
 
     if request.method == "GET":
-        form.requiere_entrega_equipo.data = "si" if servicio["requiere_entrega_equipo"] else "no"
+        form.requiere_entrega_equipo.data = (
+            "si" if servicio["requiere_entrega_equipo"] else "no"
+        )
         form.nombre.data = servicio["nombre"]
         form.descripcion.data = servicio["descripcion"]
         form.precio.data = servicio["precio"]
         form.duracion.data = servicio["duracion"]
-        form.imagen.data = servicio["imagen"]
+        form.duracion_cantidad.data, form.duracion_unidad.data = separar_duracion(
+            servicio["duracion"]
+        )
+        form.imagen.data = (
+            f"bd:{servicio['id_imagen']}"
+            if servicio["id_imagen"]
+            else servicio["imagen"]
+        )
         form.id_proveedor.data = (
             servicio["id_proveedor"] if servicio["id_proveedor"] else 0
         )
@@ -1858,13 +2091,32 @@ def editar_servicio(id):
             conn.close()
             form.nombre.errors.append(duplicado)
             return render_template(
-                "formulario_producto.html", active="servicios", form=form,
+                "formulario_producto.html",
+                imagen_form=ImagenServicioForm(),
+                active="servicios",
+                form=form,
                 titulo="Editar Servicio",
+            )
+        try:
+            imagen, id_imagen = resolver_imagen(
+                cursor, form.imagen.data, servicio["imagen"]
+            )
+        except ValueError as error:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            form.imagen.errors.append(str(error))
+            return render_template(
+                "formulario_producto.html",
+                imagen_form=ImagenServicioForm(),
+                form=form,
+                titulo="Editar Servicio",
+                active="servicios",
             )
         cursor.execute(
             """
             UPDATE servicios
-            SET nombre = %s, descripcion = %s, precio = %s, duracion = %s, imagen = %s, id_proveedor = %s, requiere_entrega_equipo = %s
+            SET nombre = %s, descripcion = %s, precio = %s, duracion = %s, imagen = %s, id_proveedor = %s, requiere_entrega_equipo = %s, id_imagen = %s, duracion_cantidad = %s, duracion_unidad = %s
             WHERE id_servicio = %s
         """,
             (
@@ -1872,9 +2124,12 @@ def editar_servicio(id):
                 form.descripcion.data,
                 form.precio.data,
                 form.duracion.data,
-                form.imagen.data,
+                imagen,
                 id_prov,
                 form.requiere_entrega_equipo.data == "si",
+                id_imagen,
+                form.duracion_cantidad.data,
+                form.duracion_unidad.data,
                 id,
             ),
         )
@@ -1891,6 +2146,7 @@ def editar_servicio(id):
     conn.close()
     return render_template(
         "formulario_producto.html",
+        imagen_form=ImagenServicioForm(),
         active="servicios",
         form=form,
         titulo="Editar Servicio",
@@ -1954,8 +2210,11 @@ def cambiar_archivado_servicio(id, archivado):
     finally:
         conn.close()
     flash(
-        "Servicio archivado. Permanece en el historial." if archivado
-        else "Servicio restaurado en pausa. Puedes reactivarlo cuando esté disponible.",
+        (
+            "Servicio archivado. Permanece en el historial."
+            if archivado
+            else "Servicio restaurado en pausa. Puedes reactivarlo cuando esté disponible."
+        ),
         "success",
     )
     return redirect(url_for("servicios"))
@@ -1980,9 +2239,7 @@ def restaurar_servicio(id):
 @admin_required
 def clientes():
     q = request.args.get("q", "").strip()
-    estados = [
-        "En revisión", "En reparación", "Entregado", "Pendiente"
-    ]
+    estados = ["En revisión", "En reparación", "Entregado", "Pendiente"]
     estado = request.args.get("estado", "")
     if estado not in estados:
         estado = ""
@@ -1990,8 +2247,11 @@ def clientes():
     if registro not in ("activos", "inactivos"):
         registro = ""
     activo = {"activos": True, "inactivos": False}.get(registro)
-    ordenes = {"nombre": "nombre ASC, id_cliente ASC",
-               "recientes": "id_cliente DESC", "antiguos": "id_cliente ASC"}
+    ordenes = {
+        "nombre": "nombre ASC, id_cliente ASC",
+        "recientes": "id_cliente DESC",
+        "antiguos": "id_cliente ASC",
+    }
     orden = request.args.get("orden", "nombre")
     if orden not in ordenes:
         orden = "nombre"
@@ -2005,17 +2265,25 @@ def clientes():
                           OR correo ILIKE %s OR equipo ILIKE %s)
                      AND (%s = '' OR estado = %s)
                      AND (%s IS NULL OR activo = %s)
-                   ORDER BY """ + ordenes[orden],
+                   ORDER BY """
+                + ordenes[orden],
                 (f"%{q}%",) * 5 + (estado, estado, activo, activo),
             )
             clientes_db = cursor.fetchall()
     finally:
         conn.close()
     return render_template(
-        "clientes.html", active="clientes", clientes=clientes_db, q=q,
-        estado=estado, estados=estados, registro=registro, orden=orden,
+        "clientes.html",
+        active="clientes",
+        clientes=clientes_db,
+        q=q,
+        estado=estado,
+        estados=estados,
+        registro=registro,
+        orden=orden,
         eliminar_form=EliminarForm(),
     )
+
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
 @admin_required
@@ -2033,7 +2301,7 @@ def nuevo_cliente():
                 form.telefono.data,
                 normalizar_correo(form.correo.data),
                 form.equipo.data,
-                (form.modelo.data or '').strip() or None,
+                (form.modelo.data or "").strip() or None,
                 form.estado.data,
             ),
         )
@@ -2080,7 +2348,7 @@ def editar_cliente(id):
                 form.telefono.data,
                 normalizar_correo(form.correo.data),
                 form.equipo.data,
-                (form.modelo.data or '').strip() or None,
+                (form.modelo.data or "").strip() or None,
                 form.estado.data,
                 id,
             ),
@@ -2108,7 +2376,6 @@ def eliminar_cliente(id):
 @admin_required
 def activar_cliente(id):
     return cambiar_activo("clientes", "id_cliente", id, True)
-
 
 
 @app.route("/proveedores")
@@ -2220,7 +2487,6 @@ def activar_proveedor(id):
     return cambiar_activo("proveedores", "id_proveedor", id, True)
 
 
-
 @app.route("/facturacion")
 @admin_required
 def facturacion():
@@ -2248,6 +2514,10 @@ def nueva_factura():
     """Compatibilidad con enlaces antiguos: no crea facturas manuales."""
     flash("Las facturas se emiten desde pedidos entregados.", "info")
     return redirect(url_for("pedidos_admin"))
+
+
+registrar_biblioteca(app, admin_required, lambda: obtener_conexion())
+registrar_rutas_pagos(app, admin_required, cliente_required, lambda: obtener_conexion())
 
 
 if __name__ == "__main__":

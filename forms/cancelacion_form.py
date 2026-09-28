@@ -29,7 +29,6 @@ class CancelacionForm(FlaskForm):
 
 class AnticipoForm(FlaskForm):
     solicitado = BooleanField("Anticipo solicitado", validators=[DataRequired(message="Confirma que se solicitó el anticipo.")])
-    pagado = BooleanField("Anticipo pagado y confirmado")
 
 
 class ObservacionPedidoForm(FlaskForm):

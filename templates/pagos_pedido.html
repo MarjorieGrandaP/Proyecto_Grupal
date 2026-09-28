@@ -1,0 +1,3 @@
+{% extends "base.html" %}
+{% block title %}PC-Fix - Pagos del pedido{% endblock %}
+{% block content %}<section class="seccion-contenido my-4"><h2>Pagos del pedido #{{ pedido.id_pedido }}</h2>{% include "components/pagos_pedido.html" %}<a class="btn btn-secondary mt-3" href="{{ url_for('pedidos_admin' if current_user.rol == 'admin' else 'mis_pedidos') }}">Volver a pedidos</a></section>{% endblock %}

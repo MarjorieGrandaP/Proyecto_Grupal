@@ -44,7 +44,7 @@
                     <th scope="col">Nombre</th>
                     <th scope="col">Proveedor Asociado</th>
                     <th scope="col">Duración</th>
-                    <th scope="col">Precio</th>
+                    <th scope="col">Precio base sin IVA</th>
                     {% if current_user.rol == "cliente" %}
                     <th scope="col" class="text-center">Solicitar</th>
                     {% endif %}
@@ -58,7 +58,7 @@
                 <tr>
                     <td class="text-center fw-bold">{{ servicio.id_servicio }}</td>
                     <td>
-                        <img src="{{ url_for('static', filename='img/' + servicio.imagen) }}"
+                        <img src="{{ url_for('imagen_servicio', id=servicio.id_imagen) if servicio.id_imagen else url_for('static', filename='img/' + servicio.imagen) }}"
                             alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;"
                             class="rounded border">
                     </td>
@@ -67,7 +67,7 @@
                         <span class="badge bg-secondary">{{ servicio.proveedor_empresa or 'Sin proveedor' }}</span>
                     </td>
                     <td>{{ servicio.duracion }}</td>
-                    <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}</td>
+                    <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}<div class="small text-muted">Total con IVA: ${{ "%.2f"|format(precio_con_iva(servicio.precio)) }}</div></td>
                     {% if current_user.rol == "cliente" %}
                     <td class="text-center">
                         <a href="{{ url_for('nuevo_pedido', servicio=servicio.id_servicio) }}"

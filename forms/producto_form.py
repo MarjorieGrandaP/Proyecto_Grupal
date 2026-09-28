@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from flask_wtf import FlaskForm
 
@@ -56,7 +57,11 @@ class ProductoForm(FlaskForm):
         "Precio ($)",
         validators=[
             InputRequired(message="El precio es obligatorio."),
-            NumberRange(min=Decimal('0.01'), max=Decimal('99999999.99'), message="El precio debe estar entre 0.01 y 99999999.99."),
+            NumberRange(
+                min=Decimal("0.01"),
+                max=Decimal("99999999.99"),
+                message="El precio debe estar entre 0.01 y 99999999.99.",
+            ),
         ],
     )
 
@@ -83,7 +88,7 @@ class ProductoForm(FlaskForm):
                 (
                     r"(?i)^(Variable|"
                     r"[0-9]+([.,][0-9]+)? "
-                    r"(minuto|minutos|hora|horas))$"
+                    r"(minuto|minutos|hora|horas|día|días|semana|semanas))$"
                 ),
                 message=(
                     "Ingrese una duración válida, por ejemplo: "
@@ -93,11 +98,61 @@ class ProductoForm(FlaskForm):
         ],
     )
 
+    duracion_cantidad = DecimalField(
+        "Tiempo",
+        places=2,
+        validators=[
+            Optional(),
+            NumberRange(min=Decimal("0.01"), max=Decimal("999999.99")),
+        ],
+    )
+    duracion_unidad = SelectField(
+        "Unidad",
+        choices=[
+            ("", "Selecciona"),
+            ("Minutos", "Minutos"),
+            ("Horas", "Horas"),
+            ("Días", "Días"),
+            ("Semanas", "Semanas"),
+            ("Variable", "Variable"),
+        ],
+        validators=[Optional()],
+    )
+
+    def validate(self, extra_validators=None):
+        estructurada = bool(self.duracion_unidad.raw_data)
+        if estructurada:
+            if self.duracion_unidad.data == "Variable":
+                self.duracion_cantidad.data = None
+                self.duracion_cantidad.raw_data = []
+                self.duracion_cantidad.process_errors = []
+                self.duracion.data = "Variable"
+            elif (
+                self.duracion_cantidad.data is not None
+                and self.duracion_cantidad.data.is_finite()
+            ):
+                self.duracion.data = f"{self.duracion_cantidad.data.normalize():f} {self.duracion_unidad.data.lower()}"
+        else:
+            # Compatibilidad de clientes antiguos; la interfaz ya usa cantidad/unidad.
+            cantidad, unidad = separar_duracion(self.duracion.data)
+            self.duracion_cantidad.data, self.duracion_unidad.data = cantidad, unidad
+        valido = super().validate(extra_validators)
+        if self.duracion_unidad.data != "Variable" and (
+            self.duracion_cantidad.data is None
+            or not self.duracion_cantidad.data.is_finite()
+            or self.duracion_cantidad.data <= 0
+        ):
+            self.duracion_cantidad.errors = list(self.duracion_cantidad.errors) + [
+                "Indica una cantidad mayor que cero."
+            ]
+            valido = False
+        return valido
+
     # ======================================================
     # IMAGEN DEL SERVICIO
     # ======================================================
     # Las opciones se cargarán dinámicamente desde app.py
-    # leyendo los archivos disponibles en static/img.
+    # combinando static/img y la biblioteca PostgreSQL.
     imagen = SelectField(
         "Imagen del servicio",
         choices=[],
@@ -127,3 +182,24 @@ class ProductoForm(FlaskForm):
         validators=[DataRequired(message="Selecciona la modalidad del servicio.")],
     )
     submit = SubmitField("Guardar")
+
+
+def separar_duracion(texto):
+    if (texto or "").lower() == "variable":
+        return None, "Variable"
+    match = re.fullmatch(
+        r"([0-9]+(?:[.,][0-9]+)?) (minutos?|horas?|días?|semanas?)", texto or "", re.I
+    )
+    if not match:
+        return None, ""
+    unidad = match[2].lower()
+    normal = (
+        "Minutos"
+        if unidad.startswith("minuto")
+        else (
+            "Horas"
+            if unidad.startswith("hora")
+            else "Días" if unidad.startswith("día") else "Semanas"
+        )
+    )
+    return Decimal(match[1].replace(",", ".")), normal

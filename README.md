@@ -31,7 +31,7 @@ El proyecto cuenta también con una versión estática publicada en GitHub Pages
 - Validaciones en el cliente y en el servidor.
 - CRUD completo de servicios conectado a PostgreSQL.
 - Relación entre servicios y proveedores.
-- Selección dinámica de imágenes para los servicios disponibles en `static/img`.
+- Biblioteca multimedia visual: imágenes originales de `static/img` y nuevas imágenes persistentes en PostgreSQL (JPG, PNG, WEBP, hasta 2 MB).
 - Registro de usuarios.
 - Contraseñas almacenadas mediante hash, no en texto plano.
 - Inicio y cierre de sesión.
@@ -131,3 +131,62 @@ El archivo `.env` contiene credenciales de PostgreSQL y la clave secreta de Flas
 - Johao Caicedo
 - Cristhian Chacha
 - Marjorie Granda
+
+## Biblioteca multimedia de servicios
+
+En crear/editar servicio, **Seleccionar imagen** abre la biblioteca. Las imágenes
+nuevas se verifican y decodifican con Pillow, se guardan en PostgreSQL y se reutilizan
+por SHA-256 si el archivo es idéntico. No requieren almacenamiento persistente de
+archivos en el servidor. Las imágenes originales siguen en `static/img`.
+La eliminación requiere administrador y CSRF; se bloquea si cualquier servicio
+(incluidos pausados y archivados) utiliza la imagen. Cambiar la imagen no borra la anterior.
+
+La migración `sql/migracion_biblioteca_multimedia.sql` también está incorporada en
+`sql/esquema.sql`. La biblioteca permite hasta 2 MB y 20 megapíxeles por imagen estática.
+
+## Primer administrador opcional
+
+Una instalación nueva no incluye cuentas ni contraseñas predeterminadas.
+Para crear el primer administrador, define en el entorno privado las tres variables
+`ADMIN_USERNAME`, `ADMIN_EMAIL` y `ADMIN_PASSWORD` documentadas en `.env.example`.
+El inicio de la aplicación guarda únicamente el hash de la contraseña. Si ya existe
+un administrador, no crea otro ni cambia credenciales. No convierte cuentas cliente
+en administradores. Tras la creación pueden retirarse las tres variables.
+
+## Verificación
+
+```text
+python -m unittest discover -s tests -q
+python -m compileall -q app.py biblioteca.py conexion forms tests
+```
+
+Las pruebas de integración requieren una PostgreSQL local ya inicializada y cuentas
+locales admin/cliente; revierten los datos de prueba. La prueba de instalación nueva
+crea un esquema aislado y lo revierte, sin reemplazar las tablas existentes.
+El controlador multimedia también dispone de una prueba sin dependencias Node:
+`node tests/biblioteca_frontend.js` (o un entorno JavaScript compatible).
+
+Ver `AUDITORIA_PRE_RENDER.md` para el resultado de la revisión de este bloque.
+
+
+## Duraciones y pagos
+
+Los servicios usan cantidad y unidad de duración; Variable no exige cantidad.
+El precio del servicio es base sin IVA. `IVA_RATE` define la tarifa de proyecto.
+Los datos de transferencia se configuran con las cuatro variables `PAYMENT_*`
+indicadas en `.env.example`, sin publicar credenciales ni datos reales en Git.
+
+El administrador inicia la revisión y fija el total con IVA desde **Gestionar → Pagos**.
+El cliente puede presentar comprobante por el anticipo del 50 % o el pago total del
+100 %. El administrador confirma o rechaza cada comprobante; un anticipo confirmado
+habilita la reparación y el saldo restante se paga al llegar a Listo. Un pago total
+confirmado no solicita un segundo pago. La factura final se emite únicamente tras el
+pago completo y conserva los importes aplicados.
+
+Las nuevas tablas y columnas están en `sql/migracion_pagos_iva_duracion.sql` y
+`sql/esquema.sql`. Para una base existente, ejecutar después
+`sql/migracion_facturas_historicas.sql` una sola vez: convierte cada factura emitida
+usando su importe anterior como base, fija IVA al 15 %, marca la factura pagada y
+registra la conciliación histórica sin archivo de comprobante. Es idempotente.
+Los comprobantes nuevos quedan en PostgreSQL, se conservan tras un rechazo y no se
+incluyen en la factura ni se exponen a otros clientes.

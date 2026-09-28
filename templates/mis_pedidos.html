@@ -65,6 +65,7 @@
                         </div>
                     </td>
                     <td class="py-3">
+                        <a class="btn btn-sm btn-outline-primary mb-2" href="{{ url_for('ver_pagos', id=pedido.id_pedido) }}">Pagos · {{ pedido.pago.estado }}</a>
                         <a data-bs-toggle="modal" data-bs-target="#modalSeguimiento" data-seguimiento-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1) }}" href="{{ url_for('seguimiento_pedido', id=pedido.id_pedido) }}" class="btn btn-sm btn-outline-secondary text-nowrap mb-2">Ver seguimiento</a>
                         {% if pedido.estado == 'Solicitado' and not pedido.id_factura %}
                         <div class="d-flex flex-column flex-lg-row gap-2 align-items-start">

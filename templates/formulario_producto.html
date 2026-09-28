@@ -41,7 +41,7 @@
                         </div>
 
                         <div class="mb-3">
-                            {{ form.precio.label(class="form-label fw-bold") }}
+                            <label for="precio" class="form-label fw-bold">Precio base sin IVA ($)</label><p class="form-text">IVA de proyecto: {{ config.IVA_RATE * 100 }} %.</p>
                             {{ form.precio(class="form-control", type="number", min="0.01", step="0.01", required=true,
                             data_validation="required,min:0.01", data_validation_message="Es obligatorio y debe ser
                             mayor que 0.") }}
@@ -52,14 +52,11 @@
                         </div>
 
                         <div class="mb-3">
-                            {{ form.duracion.label(class="form-label fw-bold") }}
-                            {{ form.duracion(class="form-control", maxlength="50", required=true,
-                            data_validation="required,duration", data_validation_message="Es obligatoria: usa, por
-                            ejemplo, 30 minutos, 1 hora, 1.5 horas o Variable.") }}
-                            {% for error in form.duracion.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
+                            <div class="row g-2">
+                                <div class="col-sm-6">{{ form.duracion_cantidad.label(class="form-label fw-bold") }}{{ form.duracion_cantidad(class="form-control", min="0.01", max="999999.99", step="0.01") }}{% for error in form.duracion_cantidad.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                                <div class="col-sm-6">{{ form.duracion_unidad.label(class="form-label fw-bold") }}{{ form.duracion_unidad(class="form-select", required=true) }}{% for error in form.duracion_unidad.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>
+                            </div>
+                            {% for error in form.duracion.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                         </div>
 
                         <div class="mb-3">
@@ -72,15 +69,14 @@
                         </div>
 
                         <div class="mb-3">
-                            {{ form.imagen.label(class="form-label fw-bold") }}
-                            {{ form.imagen(class="form-select", required=true, data_validation="required",
-                            data_validation_message="Debes seleccionar una imagen.") }}
-                            {% for error in form.imagen.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                            <div class="form-text"> Seleccione una imagen disponible para representar el servicio.
-                                Ejemplo: servicio-1</div>
+                            <label class="form-label fw-bold">Imagen del servicio</label>
+                            {{ form.imagen(class="d-none", id="imagen-servicio", tabindex="-1", aria_hidden="true") }}
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <img id="imagen-actual" class="rounded border" alt="Imagen seleccionada del servicio" width="100" height="80" style="object-fit:contain" hidden>
+                                <div><div id="imagen-actual-nombre" class="small text-muted mb-2"></div>
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bibliotecaMultimedia"><i class="bi bi-images me-2" aria-hidden="true"></i>Seleccionar imagen</button></div>
+                            </div>
+                            {% for error in form.imagen.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                         </div>
 
                         <div class="mb-4">
@@ -100,4 +96,16 @@
         </div>
     </div>
 </section>
+{% endblock %}
+{% block scripts %}
+{% include "components/biblioteca_multimedia.html" %}
+<script src="{{ url_for('static', filename='js/biblioteca.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const unidad = document.getElementById('duracion_unidad');
+    const cantidad = document.getElementById('duracion_cantidad');
+    function actualizar() { cantidad.disabled = unidad.value === 'Variable'; cantidad.required = !cantidad.disabled; }
+    unidad.addEventListener('change', actualizar); actualizar();
+});
+</script>
 {% endblock %}

@@ -1,0 +1,95 @@
+{% if pedido.anticipo_pagado and not resumen.anticipo_confirmado %}<div class="alert alert-warning">Existe una
+    confirmación antigua sin importe verificable. Revisa el pago previo antes de solicitar otra transferencia; puedes
+    aportar el comprobante original para conciliarlo.</div>{% endif %}
+<p>Estado de pago: <span class="badge bg-secondary">{{ resumen.estado }}</span></p>
+{% if pedido.total is not none %}
+<dl class="row">
+    <dt class="col-6">Subtotal</dt>
+    <dd class="col-6">${{ '%.2f'|format(pedido.subtotal) }}</dd>
+    <dt class="col-6">IVA ({{ '%g'|format(pedido.porcentaje_iva * 100) }} %)</dt>
+    <dd class="col-6">${{ '%.2f'|format(pedido.valor_iva) }}</dd>
+    <dt class="col-6">Total</dt>
+    <dd class="col-6">${{ '%.2f'|format(pedido.total) }}</dd>
+    <dt class="col-6">Anticipo requerido (50 %)</dt>
+    <dd class="col-6">${{ '%.2f'|format(pedido.anticipo_requerido) }}</dd>
+    <dt class="col-6">Saldo pendiente</dt>
+    <dd class="col-6">${{ '%.2f'|format(resumen.saldo_pendiente) }}</dd>
+</dl>
+{% if resumen.estado == 'Comprobante enviado' %}<div class="alert alert-info">Comprobante recibido — pendiente de
+    verificación</div>{% endif %}
+{% if pedido.estado == 'Listo' and resumen.anticipo_confirmado and not resumen.pago_completo %}<div
+    class="alert alert-warning">Saldo pendiente: 50 % (con ajuste de centavos). Confirma el saldo para completar la
+    entrega.</div>{% endif %}
+{% else %}<p class="text-muted">Todavía no se ha solicitado un pago con importes registrados.</p>{% endif %}
+{% if current_user.rol == 'admin' and pedido.total is none and pedido.estado in ('En revisión','En reparación','Listo')
+%}
+<form method="POST" action="{{ url_for('registrar_anticipo', id=pedido.id_pedido) }}">
+    {{ decision_form.hidden_tag() }}<input type="hidden" name="solicitado" value="y">
+    <button class="btn btn-primary mb-3" type="submit">Solicitar anticipo del 50 %</button>
+</form>
+{% endif %}
+{% if current_user.rol == 'cliente' and resumen.tipo_disponible %}
+<div class="card card-body mb-3">
+    <h3 class="h5">Opciones de pago</h3>
+    {% if banco.values()|select|list|length == 4 %}
+    <dl>
+        <dt>Banco</dt>
+        <dd>{{ banco.PAYMENT_BANK }}</dd>
+        <dt>Tipo de cuenta</dt>
+        <dd>{{ banco.PAYMENT_ACCOUNT_TYPE }}</dd>
+        <dt>Número de cuenta</dt>
+        <dd>{{ banco.PAYMENT_ACCOUNT_NUMBER }}</dd>
+        <dt>Titular</dt>
+        <dd>{{ banco.PAYMENT_ACCOUNT_HOLDER }}</dd>
+    </dl>
+    {% else %}<p class="text-muted">Los datos de transferencia aún no están configurados. Solicítalos a PC-Fix antes de
+        transferir.</p>{% endif %}
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('subir_comprobante', id=pedido.id_pedido) }}">
+        {{ comprobante_form.hidden_tag() }}
+        <label class="form-label" for="tipo-pago-{{ pedido.id_pedido }}">Monto del pago</label>
+        <select class="form-select mb-2" name="tipo_pago" id="tipo-pago-{{ pedido.id_pedido }}" required>
+            {% for tipo in resumen.tipo_disponible %}
+            {% set monto = pedido.anticipo_requerido if tipo == 'anticipo' else pedido.total if tipo == 'total' else
+            pedido.saldo_requerido %}
+            <option value="{{ tipo }}">{{ 'Pagar anticipo 50 %' if tipo == 'anticipo' else 'Pagar total 100 %' if tipo
+                == 'total' else 'Pagar saldo restante' }} · ${{ '%.2f'|format(monto) }}</option>
+            {% endfor %}
+        </select>
+        <label class="form-label" for="archivo-{{ pedido.id_pedido }}">Comprobante</label>
+        {{ comprobante_form.archivo(class="form-control mb-2", id='archivo-' ~ pedido.id_pedido,
+        accept='.jpg,.jpeg,.png,.pdf', required=true) }}
+        <p class="small text-muted">JPG, PNG o PDF. Máximo 5 MB. PDF legible sin contraseña, hasta 20 páginas.</p>
+        <button type="submit" class="btn btn-primary">Enviar comprobante</button>
+    </form>
+</div>
+{% endif %}
+<h3 class="h5">Historial de comprobantes</h3>
+{% for pago in resumen.pagos %}
+<div class="border rounded p-3 mb-2">
+    <p class="mb-1"><strong>{{ pago.tipo_pago|capitalize }}</strong> · ${{ '%.2f'|format(pago.monto) }} · {{ pago.estado
+        }}</p>
+    {% if pago.migracion_historica %}<p class="small text-muted">Pago conciliado durante la migración histórica; no
+        requiere comprobante.</p>{% endif %}
+    <p class="small text-muted">Subido: {{ pago.fecha_subida.strftime('%d/%m/%Y %H:%M') }}{% if pago.fecha_confirmacion
+        %} · Revisado: {{ pago.fecha_confirmacion.strftime('%d/%m/%Y %H:%M') }}{% endif %}{% if current_user.rol ==
+        'admin' and pago.id_usuario_confirma %} · Administrador #{{ pago.id_usuario_confirma }}{% endif %}</p>
+    {% if pago.motivo_rechazo %}<p class="text-danger">Motivo del rechazo: {{ pago.motivo_rechazo }}</p>{% endif %}
+    {% if pago.tiene_comprobante %}<a class="btn btn-sm btn-outline-secondary"
+        href="{{ url_for('ver_comprobante', id=pago.id_pago) }}">Ver comprobante</a>{% endif %}
+    {% if pago.estado == 'Confirmado' and pago.tipo_pago == 'anticipo' and not pago.migracion_historica %}<a
+        class="btn btn-sm btn-outline-secondary" href="{{ url_for('recibo_anticipo', id=pago.id_pago) }}">Recibo de
+        anticipo</a>{% endif %}
+    {% if current_user.rol == 'admin' and pago.estado == 'Pendiente' and pedido.estado not in ('Cancelado','Entregado')
+    %}
+    <form method="POST" class="mt-3" action="{{ url_for('decidir_pago', id=pago.id_pago) }}">
+        {{ decision_form.hidden_tag() }}
+        <label for="motivo-{{ pago.id_pago }}" class="form-label small">Motivo obligatorio si rechazas</label>
+        <textarea name="motivo" id="motivo-{{ pago.id_pago }}" class="form-control mb-2" maxlength="2000"
+            rows="2"></textarea>
+        <div class="d-flex gap-2"><button name="decision" value="Confirmado" class="btn btn-sm btn-success"
+                onclick="this.form.motivo.required=false">Confirmar</button><button name="decision" value="Rechazado"
+                class="btn btn-sm btn-outline-danger" onclick="this.form.motivo.required=true">Rechazar</button></div>
+    </form>
+    {% endif %}
+</div>
+{% else %}<p class="text-muted">Sin comprobantes registrados.</p>{% endfor %}

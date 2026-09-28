@@ -1,4 +1,5 @@
 """Estados, actor y seguimiento con datos transaccionales revertidos."""
+from pagos_utils import confirmar_pago
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -24,13 +25,15 @@ class Seguimiento(unittest.TestCase):
 
     def test_cada_transicion_permitida_historial_auditoria_actor(self):
         for previous,following in (
-            ("Solicitado","Pendiente de anticipo"),("Pendiente de anticipo","En revisión"),("En revisión","En reparación"),
-            ("En revisión","Listo"),("En reparación","Listo"),("Listo","Entregado"),
+            ("Solicitado","En revisión"),("En revisión","En reparación"),
+            ("En reparación","Listo"),("Listo","Entregado"),
         ):
             with self.subTest(previous=previous,following=following):
                 self.query("UPDATE pedidos SET estado=%s WHERE id_pedido=%s RETURNING id_pedido",(previous,self.order))
-                if previous == "Pendiente de anticipo":
-                    self.query("UPDATE pedidos SET anticipo_solicitado=TRUE,anticipo_pagado=TRUE WHERE id_pedido=%s RETURNING id_pedido",(self.order,))
+                if following in ('En reparación','Entregado'):
+                    confirmar_pago(self)
+                if following == 'Entregado':
+                    confirmar_pago(self,'saldo')
                 before=self.count_history()
                 self.assertEqual(self.change(following).status_code,302)
                 self.assertEqual(self.query("SELECT estado FROM pedidos WHERE id_pedido=%s",(self.order,)),[(following,)])
@@ -130,7 +133,7 @@ class Seguimiento(unittest.TestCase):
             self.query("UPDATE pedidos SET estado=%s WHERE id_pedido=%s RETURNING id_pedido",(state,self.order))
             parser=Options()
             parser.feed(self.client.get("/pedidos").get_data(as_text=True))
-            self.assertEqual(parser.values,[state] if state == "Pendiente de anticipo" else [state,*next_states] if next_states else None)
+            self.assertEqual(parser.values,[state] if state in ("En revisión","Listo") else [state,*next_states] if next_states else None)
         self.assertIn("requiere_entrega_equipo",self.client.get("/servicios/nuevo").get_data(as_text=True))
 
     def test_migracion_reejecutable_preserva_historial(self):

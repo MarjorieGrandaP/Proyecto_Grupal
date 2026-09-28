@@ -44,12 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
             validarOtro();
         });
     }
-    const anticipo = document.getElementById("modalAnticipo");
-    if (anticipo) anticipo.addEventListener("show.bs.modal", function (event) {
-        document.getElementById("formAnticipo").action = event.relatedTarget.dataset.action;
-        document.getElementById("anticipoSolicitado").checked = true;
-        document.getElementById("anticipoPagado").checked = event.relatedTarget.dataset.pagado === "true";
-    });
+
 });
 
 // Seguimiento expandible: reutiliza la misma ruta y sus permisos.

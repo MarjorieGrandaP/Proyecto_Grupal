@@ -28,21 +28,5 @@
         </form>
     </div></div>
 </div>
-{% if current_user.rol == 'admin' %}
-<div class="modal fade" id="modalAnticipo" tabindex="-1" aria-labelledby="tituloAnticipo" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-        <form method="POST" id="formAnticipo">
-            {{ anticipo_form.hidden_tag() }}
-            <div class="modal-header"><h2 class="modal-title fs-5" id="tituloAnticipo">Registrar anticipo</h2>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-            <div class="modal-body">
-                <div class="form-check mb-3">{{ anticipo_form.solicitado(class="form-check-input", id="anticipoSolicitado", required=true) }}{{ anticipo_form.solicitado.label(class="form-check-label", for="anticipoSolicitado") }}</div>
-                <div class="form-check">{{ anticipo_form.pagado(class="form-check-input", id="anticipoPagado") }}{{ anticipo_form.pagado.label(class="form-check-label", for="anticipoPagado") }}</div>
-                <p class="small text-muted mt-3 mb-0">Confirma el pago únicamente después de verificarlo. El pedido permanecerá Pendiente de anticipo hasta que avances a En revisión.</p>
-            </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-primary">Guardar anticipo</button></div>
-        </form>
-    </div></div>
-</div>
-{% endif %}
+
 <script src="{{ url_for('static', filename='js/pedidos.js') }}"></script>

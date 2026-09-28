@@ -4,7 +4,6 @@ from wtforms.validators import DataRequired, Optional, Length
 
 ESTADOS_PEDIDO = [
     ("Solicitado", "Solicitado"),
-    ("Pendiente de anticipo", "Pendiente de anticipo"),
     ("En revisión", "En revisión"),
     ("En reparación", "En reparación"),
     ("Listo", "Listo"),
@@ -26,9 +25,8 @@ class PedidoEstadoForm(FlaskForm):
 
 
 TRANSICIONES_PEDIDO = {
-    "Solicitado": ("Pendiente de anticipo",),
-    "Pendiente de anticipo": ("En revisión",),
-    "En revisión": ("En reparación", "Listo"),
+    "Solicitado": ("En revisión",),
+    "En revisión": ("En reparación",),
     "En reparación": ("Listo",),
     "Listo": ("Entregado",),
     "Entregado": (),
