@@ -332,3 +332,57 @@ main {
     color: #ffffff;
     text-shadow: 0 2px 8px rgba(37, 99, 235, 0.55);
 }
+/* Panel de cliente: estilos limitados a este panel. */
+.panel-cliente { color: #172b4d; }
+.panel-cliente p { text-align: left; color: #5b687c; line-height: 1.65; }
+.cliente-hero {
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    background: linear-gradient(120deg, #edf4ff, #fff);
+    border: 1px solid #dce7f6;
+    border-radius: 1.5rem;
+}
+.cliente-hero h2 { font-size: clamp(1.5rem, 3vw, 2rem); overflow-wrap: anywhere; }
+.cliente-avatar { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.cliente-avatar-default { display: grid; place-items: center; font-size: 2.5rem; background: #dceafe; color: #2459a6; }
+.cliente-badge { background: #e0ebfb; color: #2459a6; font-weight: 500; }
+.cliente-card {
+    border: 1px solid #e4e9f0; border-radius: 1.25rem;
+    box-shadow: 0 4px 18px rgba(28, 55, 90, .05);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.cliente-card:hover, .cliente-card:focus-within {
+    transform: translateY(-3px); box-shadow: 0 10px 26px rgba(28, 55, 90, .10);
+}
+.cliente-card .card-body { min-height: 285px; }
+.cliente-icono { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: #edf4ff; color: #2459a6; font-size: 1.5rem; }
+.cliente-resumen { border-radius: 1rem; background: #f5f7fa; color: #5b687c; }
+@media (prefers-reduced-motion: reduce) {
+    .cliente-card { transition: none; }
+    .cliente-card:hover, .cliente-card:focus-within { transform: none; }
+}
+
+/* Administración: componentes acotados, sin alterar el portal de cliente. */
+.panel-admin p, .admin-listado p { text-align: left; line-height: 1.6; }
+.admin-hero { padding: clamp(1.5rem, 4vw, 2.5rem); border-radius: 1.5rem; border: 1px solid #dce7f6; background: linear-gradient(120deg, #edf4ff, #fff); color: #172b4d; }
+.admin-hero h2 { overflow-wrap: anywhere; }
+.admin-estadistica, .admin-card { border: 1px solid #e4e9f0; border-radius: 1rem; background: #fff; box-shadow: 0 4px 18px rgba(28,55,90,.05); }
+.admin-card { transition: transform .18s ease, box-shadow .18s ease; }
+.admin-card:hover, .admin-card:focus-within { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(28,55,90,.10); }
+.admin-card .card-body { min-height: 250px; }
+.admin-icono { color: #2459a6; background: #edf4ff; border-radius: 14px; width: 48px; height: 48px; display: grid; place-items: center; font-size: 1.5rem; }
+.admin-filtros { background: #f6f8fb; border: 1px solid #e4e9f0; border-radius: 1rem; padding: .75rem .25rem 1rem; margin-left: 0; margin-right: 0; }
+.admin-filtros .form-label { font-size: .85rem; font-weight: 600; color: #45546a; }
+.admin-listado .table th { white-space: nowrap; font-size: .85rem; }
+.admin-listado .table td { padding: 1rem .75rem; }
+.admin-listado .table .btn { white-space: nowrap; }
+.admin-listado .table form { margin: 0; }
+.admin-listado .table .form-select { min-width: 155px; }
+.admin-listado .badge { font-weight: 500; }
+@media (prefers-reduced-motion: reduce) {
+    .admin-card { transition: none; }
+    .admin-card:hover, .admin-card:focus-within { transform: none; }
+}
+
+/* Estados compartidos por administración, portal y seguimiento. */
+.estado-reparacion { background-color: #b94e00; color: #fff; }
+.estado-entregado { background-color: #14532d; color: #fff; }

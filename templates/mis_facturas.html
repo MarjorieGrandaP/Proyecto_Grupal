@@ -5,6 +5,37 @@
 {% block content %}
 <section class="seccion-contenido my-4">
     <h2 class="titulo-seccion text-center">Mis facturas</h2>
+    <form method="GET" action="{{ url_for('mis_facturas') }}" class="row g-3 align-items-end mb-4" role="search">
+        <div class="col-12 col-lg-5">
+            <label for="busqueda-factura" class="form-label">Buscar factura</label>
+            <input id="busqueda-factura" type="search" name="q" value="{{ q }}" class="form-control"
+                placeholder="Número, servicio, estado, equipo o pedido...">
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <label for="estado-factura" class="form-label">Estado</label>
+            <select id="estado-factura" name="estado" class="form-select">
+                {% for valor, etiqueta in [('', 'Todos'), ('Pendiente', 'Pendiente'), ('Pagada', 'Pagada')] %}
+                <option value="{{ valor }}" {% if estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <label for="orden-factura" class="form-label">Ordenar por</label>
+            <select id="orden-factura" name="orden" class="form-select">
+                {% for valor, etiqueta in [
+                    ('recientes', 'Más recientes'), ('antiguas', 'Más antiguas'),
+                    ('mayor_total', 'Mayor total'), ('menor_total', 'Menor total'),
+                    ('numero', 'Número de factura')
+                ] %}
+                <option value="{{ valor }}" {% if orden == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+            <a href="{{ url_for('mis_facturas') }}" class="btn btn-outline-secondary">Limpiar</a>
+        </div>
+    </form>
     <div class="table-responsive shadow-sm rounded border">
         <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -23,7 +54,7 @@
                 <tr>
                     <td class="fw-bold">{{ factura.numero }}</td>
                     <td>#{{ factura.id_pedido or 'No vinculado' }}</td>
-                    <td>{{ factura.servicio_nombre or 'Servicio no disponible' }}</td>
+                    <td>{{ factura.servicio_nombre or 'Servicio no disponible' }}{% if factura.equipo %}<div class="small text-muted">Equipo: {{ factura.equipo }}</div>{% endif %}{% if factura.modelo %}<div class="small text-muted">Modelo: {{ factura.modelo }}</div>{% endif %}</td>
                     <td>{{ factura.fecha }}</td>
                     <td>${{ "%.2f"|format(factura.total) }}</td>
                     <td><span
@@ -34,7 +65,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">Aún no tienes facturas emitidas.</td>
+                    <td colspan="7" class="text-center text-muted py-4">{{ 'No se encontraron resultados para esta búsqueda.' if q or estado else 'Aún no tienes facturas emitidas.' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,3 +1,10 @@
+from forms.detalle_servicio_form import DetalleServicioForm
+from forms.cancelacion_form import ObservacionPedidoForm
+from forms.equipo_form import EquipoPedidoForm
+from html import escape
+from forms.cancelacion_form import CancelacionForm, AnticipoForm, MOTIVOS_CLIENTE, MOTIVOS_ADMIN
+from forms.pedido_estado_form import TRANSICIONES_PEDIDO, COLORES_PEDIDO, mensaje_estado_pedido
+from forms.pedido_form import EditarPedidoForm
 from functools import wraps
 
 from flask import (
@@ -17,7 +24,6 @@ from forms import (
     ProductoForm,
     ClienteForm,
     ProveedorForm,
-    FacturacionForm,
     LoginForm,
     UsuarioForm,
     PerfilForm,
@@ -76,6 +82,13 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
+
+app.jinja_env.globals.update(
+    transiciones_pedido=TRANSICIONES_PEDIDO,
+    colores_pedido=COLORES_PEDIDO,
+    mensaje_estado_pedido=mensaje_estado_pedido,
+)
+
 
 # SECRET_KEY es utilizada por Flask para proteger
 # sesiones, mensajes flash y formularios CSRF.
@@ -199,7 +212,7 @@ def obtener_opciones_proveedores():
         conn = obtener_conexion()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(
-            "SELECT id_proveedor, empresa FROM proveedores ORDER BY empresa ASC"
+            "SELECT id_proveedor, empresa FROM proveedores WHERE activo = TRUE ORDER BY empresa ASC"
         )
         proveedores = cursor.fetchall()
         cursor.close()
@@ -340,7 +353,7 @@ def cargar_opciones_servicios():
     """Carga los servicios actuales para los SelectField de los pedidos."""
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT id_servicio, nombre FROM servicios ORDER BY nombre ASC")
+    cursor.execute("SELECT id_servicio, nombre FROM servicios WHERE activo = TRUE AND archivado = FALSE ORDER BY nombre ASC")
     opciones = [
         (servicio["id_servicio"], servicio["nombre"]) for servicio in cursor.fetchall()
     ]
@@ -714,14 +727,24 @@ def nuevo_pedido():
         cursor = conn.cursor()
         try:
             cursor.execute(
+                "SELECT id_servicio FROM servicios WHERE id_servicio = %s AND activo = TRUE AND archivado = FALSE FOR SHARE",
+                (form.servicio.data,),
+            )
+            if not cursor.fetchone():
+                flash("El servicio ya no está disponible para nuevos pedidos.", "warning")
+                return redirect(url_for("nuevo_pedido"))
+            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
                 """
-                INSERT INTO pedidos (id_usuario, id_servicio, equipo, descripcion, solicita_factura)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO pedidos (id_usuario, id_servicio, equipo, modelo, descripcion, solicita_factura,
+                                     terminos_aceptados, fecha_aceptacion_terminos)
+                VALUES (%s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)
                 """,
                 (
                     current_user.id,
                     form.servicio.data,
                     form.equipo.data,
+                    (form.modelo.data or '').strip() or None,
                     form.descripcion.data,
                     form.solicita_factura.data,
                 ),
@@ -743,31 +766,270 @@ def nuevo_pedido():
 @cliente_required
 def mis_pedidos():
     """Lista exclusivamente los pedidos del cliente autenticado."""
+    q = request.args.get("q", "").strip()
+    patron = f"%{q}%"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
         """
-        SELECT p.id_pedido, p.equipo, p.descripcion, p.estado,
+        SELECT p.id_pedido, p.equipo, p.modelo, p.descripcion, p.estado,
                p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
+               (clock_timestamp()::timestamp BETWEEN p.fecha_solicitud
+                AND p.fecha_solicitud + INTERVAL '5 minutes') AS dentro_plazo,
                s.nombre AS servicio_nombre,
+               COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo,
                f.id_factura
         FROM pedidos p
         LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
         LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
         WHERE p.id_usuario = %s
+        AND (p.id_pedido::text ILIKE %s OR s.nombre ILIKE %s
+             OR p.equipo ILIKE %s OR p.descripcion ILIKE %s OR p.estado ILIKE %s)
         ORDER BY p.fecha_solicitud DESC
         """,
-        (current_user.id,),
+        (current_user.id,) + (patron,) * 5,
     )
     pedidos = cursor.fetchall()
+    cursor.execute(
+        """SELECT p.id_pedido, COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
+           FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+           WHERE p.id_usuario = %s AND p.estado = 'Listo'
+           ORDER BY p.fecha_actualizacion DESC""", (current_user.id,)
+    )
+    pedidos_listos = cursor.fetchall()
     cursor.close()
     conn.close()
     return render_template(
         "mis_pedidos.html",
-        pedidos=pedidos,
-        solicitar_factura_form=PedidoAccionForm(),
+        pedidos=pedidos, pedidos_listos=pedidos_listos,
+        q=q,
+        solicitar_factura_form=PedidoAccionForm(), cancelar_form=crear_cancelacion_form(),
         active="mis_pedidos",
     )
+
+
+@app.route("/mis-pedidos/<int:id>/seguimiento")
+@app.route("/pedidos/<int:id>/seguimiento")
+@login_required
+def seguimiento_pedido(id):
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """SELECT p.id_pedido, p.estado, p.equipo, p.modelo, p.fecha_entrega, (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_fin,
+                          CURRENT_DATE <= (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_vigente, p.anticipo_solicitado, p.anticipo_pagado,
+                          COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
+                   FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+                   WHERE p.id_pedido = %s AND (%s OR p.id_usuario = %s)""",
+                (id, current_user.rol == "admin", current_user.id),
+            )
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            cursor.execute(
+                """SELECT h.estado_anterior, h.estado_nuevo, h.fecha_hora,
+                          CASE WHEN %s THEN h.observacion END AS observacion,
+                          CASE WHEN %s THEN h.motivo_cancelacion END AS motivo_cancelacion,
+                          CASE WHEN %s THEN u.usuario END AS actor
+                   FROM historial_estado_pedidos h
+                   LEFT JOIN usuarios u ON u.id_usuario = h.id_usuario_actor
+                   JOIN pedidos p ON p.id_pedido = h.id_pedido
+                   WHERE h.id_pedido = %s AND (%s OR p.id_usuario = %s)
+                   ORDER BY h.fecha_hora, h.id_historial""", (current_user.rol == "admin",) * 3 + (id, current_user.rol == "admin", current_user.id)
+            )
+            historial = cursor.fetchall()
+            cursor.execute(
+                """SELECT o.texto, o.fecha_hora, o.visible_cliente, CASE WHEN %s THEN u.usuario END AS actor
+                   FROM observaciones_pedidos o LEFT JOIN usuarios u ON u.id_usuario=o.id_usuario_actor
+                   WHERE o.id_pedido=%s AND (%s OR o.visible_cliente=TRUE)
+                   ORDER BY o.fecha_hora, o.id_observacion""", (current_user.rol == "admin", id, current_user.rol == "admin")
+            )
+            observaciones = cursor.fetchall()
+    finally:
+        conn.close()
+    return render_template(
+        ("components/observaciones_pedido.html" if request.args.get("seccion") == "observaciones" else "components/linea_tiempo.html") if request.args.get("modal") == "1" else "seguimiento_pedido.html", pedido=pedido, historial=historial, observaciones=observaciones, active="mis_pedidos"
+    )
+
+
+MENSAJE_PEDIDO_BLOQUEADO = (
+    "Este pedido ya está siendo procesado y no puede modificarse ni cancelarse desde el portal. "
+    "Comunícate con el administrador si necesitas realizar un cambio."
+)
+
+
+def pedido_propio_bloqueado(cursor, id):
+    """Bloquea el pedido propio durante la validación y el UPDATE."""
+    cursor.execute(
+        "SELECT * FROM pedidos WHERE id_pedido = %s AND id_usuario = %s FOR UPDATE",
+        (id, current_user.id),
+    )
+    pedido = cursor.fetchone()
+    if not pedido:
+        abort(404)
+    cursor.execute("SELECT 1 FROM facturas WHERE id_pedido = %s", (id,))
+    tiene_factura = cursor.fetchone() is not None
+    return pedido, pedido["estado"] == "Solicitado" and not tiene_factura
+
+
+@app.route("/mis-pedidos/<int:id>/editar", methods=["GET", "POST"])
+@cliente_required
+def editar_pedido(id):
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            pedido, permitido = pedido_propio_bloqueado(cursor, id)
+            if not permitido:
+                flash(MENSAJE_PEDIDO_BLOQUEADO, "warning")
+                return redirect(url_for("mis_pedidos"))
+            form = EditarPedidoForm()
+            cursor.execute(
+                """SELECT id_servicio, nombre, activo, archivado FROM servicios
+                   WHERE (activo = TRUE AND archivado = FALSE) OR id_servicio = %s ORDER BY nombre""",
+                (pedido["id_servicio"],),
+            )
+            form.servicio.choices = [
+                (r["id_servicio"], r["nombre"] + (" (Archivado, actual)" if r["archivado"] else " (En pausa, actual)" if not r["activo"] else ""))
+                for r in cursor.fetchall()
+            ]
+            if request.method == "GET":
+                form.servicio.data = pedido["id_servicio"]
+                form.equipo.data = pedido["equipo"]
+                form.modelo.data = pedido["modelo"]
+                form.descripcion.data = pedido["descripcion"]
+            if form.validate_on_submit():
+                # Revalidar y bloquear el servicio seleccionado frente a una pausa concurrente.
+                cursor.execute(
+                    """SELECT id_servicio FROM servicios
+                       WHERE id_servicio = %s AND ((activo = TRUE AND archivado = FALSE) OR id_servicio = %s)
+                       FOR SHARE""",
+                    (form.servicio.data, pedido["id_servicio"]),
+                )
+                if not cursor.fetchone():
+                    form.servicio.errors.append("Selecciona un servicio activo.")
+                else:
+                    cursor.execute(
+                        """UPDATE pedidos
+                           SET id_servicio = %s, equipo = %s, modelo = %s, descripcion = %s,
+                               fecha_actualizacion = CURRENT_TIMESTAMP
+                           WHERE id_pedido = %s AND id_usuario = %s AND estado = 'Solicitado'
+                             AND NOT EXISTS (SELECT 1 FROM facturas WHERE id_pedido = %s)""",
+                        (form.servicio.data, form.equipo.data, (form.modelo.data or '').strip() or None, form.descripcion.data,
+                         id, current_user.id, id),
+                    )
+                    conn.commit()
+                    flash("Pedido actualizado correctamente.", "success")
+                    return redirect(url_for("mis_pedidos"))
+            return render_template(
+                "formulario_pedido.html", form=form, editando=True, active="mis_pedidos"
+            )
+    finally:
+        conn.close()
+
+
+def crear_cancelacion_form(admin=False):
+    form = CancelacionForm()
+    motivos = MOTIVOS_ADMIN if admin else MOTIVOS_CLIENTE
+    form.motivo.choices = [("", "Selecciona un motivo")] + [(m, m) for m in motivos]
+    return form
+
+
+def procesar_cancelacion(id, admin=False):
+    form = crear_cancelacion_form(admin)
+    if not form.validate_on_submit():
+        abort(400, description="Selecciona un motivo válido y completa la observación si eliges Otro.")
+    destino = "pedidos_admin" if admin else "mis_pedidos"
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """SELECT p.*,
+                   (clock_timestamp()::timestamp BETWEEN fecha_solicitud
+                    AND fecha_solicitud + INTERVAL '5 minutes') AS dentro_plazo
+                   FROM pedidos p WHERE id_pedido = %s AND (%s OR id_usuario = %s)
+                   FOR UPDATE""", (id, admin, current_user.id)
+            )
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            cursor.execute("SELECT 1 FROM facturas WHERE id_pedido = %s", (id,))
+            facturado = cursor.fetchone() is not None
+            permitido = (
+                pedido["estado"] not in ("Entregado", "Cancelado") if admin
+                else pedido["estado"] == "Solicitado"
+            )
+            if facturado or not permitido:
+                flash(MENSAJE_PEDIDO_BLOQUEADO, "warning")
+                return redirect(url_for(destino))
+            if not admin and not pedido["dentro_plazo"]:
+                flash("Solo puedes cancelar durante los primeros 5 minutos desde la creación del pedido.", "warning")
+                return redirect(url_for(destino))
+            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
+                """UPDATE pedidos SET estado='Cancelado', motivo_cancelacion=%s,
+                          observacion=%s, cancelado_por=%s, fecha_cancelacion=CURRENT_TIMESTAMP,
+                          fecha_actualizacion=CURRENT_TIMESTAMP
+                   WHERE id_pedido=%s
+                     AND (%s OR clock_timestamp()::timestamp BETWEEN fecha_solicitud
+                          AND fecha_solicitud + INTERVAL '5 minutes')""",
+                (form.motivo.data, (form.observacion.data or "").strip() or None,
+                 current_user.id, id, admin),
+            )
+            if cursor.rowcount == 0:
+                flash("La ventana de 5 minutos para cancelar ha finalizado.", "warning")
+                return redirect(url_for(destino))
+        conn.commit()
+        flash("Pedido cancelado. Permanece en el historial.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for(destino))
+
+
+@app.route("/mis-pedidos/<int:id>/cancelar", methods=["POST"])
+@cliente_required
+def cancelar_pedido(id):
+    return procesar_cancelacion(id)
+
+
+@app.route("/pedidos/<int:id>/cancelar", methods=["POST"])
+@admin_required
+def cancelar_pedido_admin(id):
+    return procesar_cancelacion(id, admin=True)
+
+
+@app.route("/pedidos/<int:id>/anticipo", methods=["POST"])
+@admin_required
+def registrar_anticipo(id):
+    form = AnticipoForm()
+    if not form.validate_on_submit():
+        abort(400)
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT estado, anticipo_pagado FROM pedidos WHERE id_pedido=%s FOR UPDATE", (id,))
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            cursor.execute("SELECT 1 FROM facturas WHERE id_pedido=%s", (id,))
+            if pedido["estado"] not in ("Solicitado", "Pendiente de anticipo") or cursor.fetchone():
+                flash("No se puede modificar el anticipo en este estado.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            if pedido["anticipo_pagado"] and not form.pagado.data:
+                flash("Un anticipo confirmado no puede desmarcarse desde este formulario.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
+                """UPDATE pedidos SET anticipo_solicitado=TRUE, anticipo_pagado=%s,
+                          estado='Pendiente de anticipo', fecha_actualizacion=CURRENT_TIMESTAMP,
+                          observacion=%s
+                   WHERE id_pedido=%s""",
+                (form.pagado.data, "Anticipo solicitado; pago confirmado." if form.pagado.data else "Anticipo solicitado.", id),
+            )
+        conn.commit()
+        flash("Información del anticipo actualizada.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for("pedidos_admin"))
 
 
 @app.route("/mis-pedidos/<int:id>/solicitar-factura", methods=["POST"])
@@ -785,7 +1047,7 @@ def solicitar_factura(id):
         """
         UPDATE pedidos
         SET solicita_factura = TRUE, fecha_actualizacion = CURRENT_TIMESTAMP
-        WHERE id_pedido = %s AND id_usuario = %s
+        WHERE id_pedido = %s AND id_usuario = %s AND estado <> 'Cancelado'
         """,
         (id, current_user.id),
     )
@@ -805,30 +1067,66 @@ def solicitar_factura(id):
 @admin_required
 def pedidos_admin():
     """Muestra todos los pedidos para gestión administrativa."""
+    q = request.args.get("q", "").strip()
+    estados = [valor for valor, _ in PedidoEstadoForm().estado.choices]
+    estado = request.args.get("estado", "")
+    if estado not in estados:
+        estado = ""
+    factura = request.args.get("factura", "")
+    facturas_filtro = {
+        "": "TRUE", "no_solicitada": "p.solicita_factura = FALSE AND f.id_factura IS NULL",
+        "solicitada": "p.solicita_factura = TRUE AND f.id_factura IS NULL",
+        "emitida": "f.id_factura IS NOT NULL",
+    }
+    if factura not in facturas_filtro:
+        factura = ""
+    fecha = request.args.get("fecha", "")
+    try:
+        fecha_param = datetime.strptime(fecha, "%Y-%m-%d").date() if fecha else None
+    except ValueError:
+        fecha = ""
+        fecha_param = None
+    orden = request.args.get("orden", "recientes")
+    ordenes = {"recientes": "p.fecha_solicitud DESC, p.id_pedido DESC",
+               "antiguos": "p.fecha_solicitud ASC, p.id_pedido ASC"}
+    if orden not in ordenes:
+        orden = "recientes"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute("""
-        SELECT p.id_pedido, p.equipo, p.descripcion, p.estado,
-               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
+        SELECT p.id_pedido, p.equipo, p.modelo, p.descripcion, p.estado,
+               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion, p.anticipo_solicitado, p.anticipo_pagado,
              u.usuario, u.correo,
              pu.nombres, pu.apellidos,
                s.nombre AS servicio_nombre,
-               f.id_factura
+               f.id_factura, f.numero AS factura_numero, f.estado AS factura_estado,
+               d.diagnostico, d.trabajo_realizado, d.repuestos, d.recomendaciones,
+               p.fecha_entrega, (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_fin,
+               CURRENT_DATE <= (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_vigente
         FROM pedidos p
         JOIN usuarios u ON u.id_usuario = p.id_usuario
          LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
         LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
         LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
-        ORDER BY p.fecha_solicitud DESC
-        """)
+        LEFT JOIN detalle_servicio d ON d.id_pedido = p.id_pedido
+        WHERE (CONCAT_WS(' ', pu.nombres, pu.apellidos) ILIKE %s
+               OR u.usuario ILIKE %s OR u.correo ILIKE %s OR s.nombre ILIKE %s
+               OR p.equipo ILIKE %s OR p.descripcion ILIKE %s OR p.id_pedido::text ILIKE %s)
+          AND (%s = '' OR p.estado = %s)
+          AND (%s::date IS NULL OR p.fecha_solicitud::date = %s::date)
+          AND (""" + facturas_filtro[factura] + """)
+        ORDER BY """ + ordenes[orden],
+        (f"%{q}%",) * 7 + (estado, estado, fecha_param, fecha_param),
+    )
     pedidos = cursor.fetchall()
     cursor.close()
     conn.close()
     return render_template(
         "pedidos_admin.html",
-        pedidos=pedidos,
-        estado_form=PedidoEstadoForm(),
-        emitir_form=EmitirFacturaForm(),
+        pedidos=pedidos, q=q, estado=estado, estados=estados,
+        factura=factura, fecha=fecha, orden=orden,
+        estado_form=PedidoEstadoForm(), cancelar_form=crear_cancelacion_form(True), anticipo_form=AnticipoForm(),
+        emitir_form=EmitirFacturaForm(), equipo_form=EquipoPedidoForm(), tecnico_form=DetalleServicioForm(), observacion_form=ObservacionPedidoForm(),
         active="pedidos",
     )
 
@@ -896,58 +1194,137 @@ def auditoria():
     )
 
 
+@app.route("/pedidos/<int:id>/detalle-servicio", methods=["POST"])
+@admin_required
+def guardar_detalle_servicio(id):
+    form = DetalleServicioForm()
+    if not form.validate_on_submit():
+        flash("No se guardó la información técnica. Revisa el formulario (máximo 10000 caracteres por campo).", "warning")
+        return redirect(url_for("pedidos_admin"))
+    conn = obtener_conexion()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,))
+            if not cursor.fetchone():
+                abort(404)
+            cursor.execute(
+                """INSERT INTO detalle_servicio
+                   (id_pedido,diagnostico,trabajo_realizado,repuestos,recomendaciones,actualizado_por)
+                   VALUES (%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT (id_pedido) DO UPDATE SET
+                       diagnostico=EXCLUDED.diagnostico, trabajo_realizado=EXCLUDED.trabajo_realizado,
+                       repuestos=EXCLUDED.repuestos, recomendaciones=EXCLUDED.recomendaciones,
+                       actualizado_por=EXCLUDED.actualizado_por, fecha_actualizacion=CURRENT_TIMESTAMP""",
+                (id, form.diagnostico.data, form.trabajo_realizado.data, form.repuestos.data,
+                 form.recomendaciones.data, current_user.id),
+            )
+        conn.commit()
+        flash("Expediente técnico actualizado y auditado.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for("pedidos_admin"))
+
+
+@app.route("/pedidos/<int:id>/observaciones", methods=["POST"])
+@admin_required
+def agregar_observacion_pedido(id):
+    form = ObservacionPedidoForm()
+    if not form.validate_on_submit():
+        flash("Escribe una observación de entre 1 y 2000 caracteres.", "warning")
+        return redirect(url_for("pedidos_admin"))
+    conn = obtener_conexion()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_pedido FROM pedidos WHERE id_pedido=%s FOR SHARE", (id,))
+            if not cursor.fetchone():
+                abort(404)
+            cursor.execute(
+                """INSERT INTO observaciones_pedidos (id_pedido,texto,id_usuario_actor,visible_cliente)
+                   VALUES (%s,%s,%s,%s) RETURNING id_observacion""",
+                (id, form.texto.data.strip(), current_user.id, form.visible_cliente.data),
+            )
+            ident = cursor.fetchone()[0]
+            cursor.execute(
+                """INSERT INTO auditoria (tabla,operacion,id_registro,datos_nuevos,usuario_bd)
+                   SELECT 'observaciones_pedidos','INSERT',id_observacion::text,to_jsonb(o),CURRENT_USER
+                   FROM observaciones_pedidos o WHERE id_observacion=%s""", (ident,)
+            )
+        conn.commit()
+        flash("Observación añadida al seguimiento.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for("pedidos_admin"))
+
+
+@app.route("/pedidos/<int:id>/equipo", methods=["GET", "POST"])
+@admin_required
+def corregir_equipo_pedido(id):
+    """Corrección administrativa de datos; no cambia estado, propietario ni facturas."""
+    form = EquipoPedidoForm()
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT id_pedido, equipo, modelo, descripcion FROM pedidos WHERE id_pedido=%s FOR UPDATE", (id,))
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            if request.method == "GET":
+                form.equipo.data = pedido["equipo"]
+                form.modelo.data = pedido["modelo"]
+                form.descripcion.data = pedido["descripcion"]
+            if form.validate_on_submit():
+                cursor.execute(
+                    """UPDATE pedidos SET equipo=%s, modelo=%s, descripcion=%s, fecha_actualizacion=CURRENT_TIMESTAMP
+                       WHERE id_pedido=%s""",
+                    (form.equipo.data, (form.modelo.data or "").strip() or None,
+                     (form.descripcion.data or "").strip() if "descripcion" in request.form else pedido["descripcion"], id),
+                )
+                conn.commit()
+                flash("Datos del equipo corregidos. Las facturas emitidas conservan sus datos históricos.", "success")
+                return redirect(url_for("pedidos_admin"))
+        return render_template("corregir_equipo_pedido.html", form=form, pedido=pedido, active="pedidos")
+    finally:
+        conn.close()
+
+
 @app.route("/pedidos/<int:id>/estado", methods=["POST"])
 @admin_required
 def actualizar_estado_pedido(id):
-    """Actualiza el estado usando únicamente los valores definidos por el formulario."""
     form = PedidoEstadoForm()
     if not form.validate_on_submit():
-        flash("Selecciona un estado válido.", "danger")
+        flash("No se puede regresar a un estado anterior del pedido.", "warning")
         return redirect(url_for("pedidos_admin"))
-
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
-        """
-        SELECT p.id_pedido, f.id_factura
-        FROM pedidos p
-        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
-        WHERE p.id_pedido = %s
-        """,
-        (id,),
-    )
-    pedido = cursor.fetchone()
-
-    if not pedido:
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                "SELECT estado, anticipo_solicitado, anticipo_pagado FROM pedidos WHERE id_pedido = %s FOR UPDATE", (id,)
+            )
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            actual = pedido["estado"]
+            destino = form.estado.data
+            if destino == actual:
+                return redirect(url_for("pedidos_admin"))
+            cursor.execute("SELECT 1 FROM facturas WHERE id_pedido = %s", (id,))
+            facturado = cursor.fetchone() is not None
+            if facturado or destino not in TRANSICIONES_PEDIDO.get(actual, ()):
+                flash("No se puede regresar a un estado anterior del pedido.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            if destino == "En revisión" and not (pedido["anticipo_solicitado"] and pedido["anticipo_pagado"]):
+                flash("Debes confirmar el pago del anticipo antes de iniciar la revisión.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            cursor.execute("SELECT set_config('pcfix.usuario_actor', %s, TRUE)", (str(current_user.id),))
+            cursor.execute(
+                """UPDATE pedidos SET estado = %s, fecha_actualizacion = CURRENT_TIMESTAMP,
+                          anticipo_solicitado = CASE WHEN %s = 'Pendiente de anticipo' THEN TRUE ELSE anticipo_solicitado END,
+                          observacion = %s
+                   WHERE id_pedido = %s""", (destino, destino, (form.observacion.data or "").strip() or None, id)
+            )
+        conn.commit()
+    finally:
         conn.close()
-        abort(404)
-
-    if form.estado.data == "Cancelado" and pedido["id_factura"]:
-        conn.rollback()
-        cursor.close()
-        conn.close()
-        flash(
-            "No se puede cancelar un pedido que ya tiene una factura emitida.",
-            "danger",
-        )
-        return redirect(url_for("pedidos_admin"))
-
-    cursor.execute(
-        """
-        UPDATE pedidos
-        SET estado = %s, fecha_actualizacion = CURRENT_TIMESTAMP
-        WHERE id_pedido = %s
-        """,
-        (form.estado.data, id),
-    )
-    if cursor.rowcount == 0:
-        conn.rollback()
-        cursor.close()
-        conn.close()
-        abort(404)
-    conn.commit()
-    cursor.close()
-    conn.close()
     flash("Estado del pedido actualizado.", "success")
     return redirect(url_for("pedidos_admin"))
 
@@ -962,52 +1339,61 @@ def emitir_factura(id):
         return redirect(url_for("pedidos_admin"))
 
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
-        """
-        SELECT p.id_pedido, p.id_usuario, p.id_servicio, p.equipo,
-               p.solicita_factura, s.nombre AS servicio_nombre,
-               s.precio, f.id_factura
-        FROM pedidos p
-        LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
-        LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
-        WHERE p.id_pedido = %s
-        """,
-        (id,),
-    )
-    pedido = cursor.fetchone()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # Serializa emisiones y cambios de estado del mismo pedido.
+            cursor.execute(
+                """
+                SELECT p.id_pedido, p.id_usuario, p.id_servicio, p.estado,
+                       p.solicita_factura, p.equipo, p.modelo, s.nombre AS servicio_nombre, s.precio
+                FROM pedidos p
+                LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
+                WHERE p.id_pedido = %s
+                FOR UPDATE OF p
+                """,
+                (id,),
+            )
+            pedido = cursor.fetchone()
+            if not pedido:
+                abort(404)
+            # Consulta independiente después del bloqueo: ve emisiones concurrentes.
+            cursor.execute("SELECT id_factura FROM facturas WHERE id_pedido = %s", (id,))
+            if cursor.fetchone():
+                flash("Este pedido ya tiene una factura emitida.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            if pedido["estado"] != "Entregado":
+                flash("La factura solo puede emitirse cuando el pedido se encuentre Entregado.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            if not pedido["solicita_factura"]:
+                flash("El cliente todavía no ha solicitado factura.", "warning")
+                return redirect(url_for("pedidos_admin"))
+            if pedido["servicio_nombre"] is None or pedido["precio"] is None:
+                flash("El pedido no tiene un servicio con precio disponible para facturar.", "warning")
+                return redirect(url_for("pedidos_admin"))
 
-    if not pedido:
-        cursor.close()
+            numero = f"FAC-{datetime.now().strftime('%Y%m%d%H%M%S%f')}-{id}"
+            cursor.execute(
+                """
+                INSERT INTO facturas (
+                    numero, id_cliente, id_servicio, fecha, total, estado,
+                    id_usuario, id_pedido, servicio_nombre, equipo_nombre, equipo_modelo
+                )
+                VALUES (%s, NULL, %s, CURRENT_DATE, %s, 'Pendiente', %s, %s, %s, %s, %s)
+                ON CONFLICT (id_pedido) WHERE id_pedido IS NOT NULL DO NOTHING
+                RETURNING id_factura
+                """,
+                (numero, pedido["id_servicio"], pedido["precio"],
+                 pedido["id_usuario"], pedido["id_pedido"], pedido["servicio_nombre"],
+                 pedido["equipo"], pedido["modelo"] or ""),
+            )
+            emitida = cursor.fetchone()
+        conn.commit()
+        if emitida:
+            flash(f"Factura {numero} emitida correctamente.", "success")
+        else:
+            flash("Este pedido ya tiene una factura emitida.", "warning")
+    finally:
         conn.close()
-        abort(404)
-    if pedido["id_factura"]:
-        conn.close()
-        flash("Este pedido ya tiene una factura emitida.", "warning")
-        return redirect(url_for("pedidos_admin"))
-    if not pedido["solicita_factura"]:
-        conn.close()
-        flash("El cliente todavía no ha solicitado factura.", "warning")
-        return redirect(url_for("pedidos_admin"))
-
-    numero = f"FAC-{datetime.now().strftime('%Y%m%d%H%M%S')}-{id}"
-    cursor.execute(
-        """
-        INSERT INTO facturas (numero, id_cliente, id_servicio, fecha, total, estado, id_usuario, id_pedido)
-        VALUES (%s, NULL, %s, CURRENT_DATE, %s, 'Pendiente', %s, %s)
-        """,
-        (
-            numero,
-            pedido["id_servicio"],
-            pedido["precio"] or 0,
-            pedido["id_usuario"],
-            id,
-        ),
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash(f"Factura {numero} emitida correctamente.", "success")
     return redirect(url_for("pedidos_admin"))
 
 
@@ -1015,25 +1401,46 @@ def emitir_factura(id):
 @cliente_required
 def mis_facturas():
     """Lista exclusivamente las facturas del cliente autenticado."""
+    q = request.args.get("q", "").strip()
+    patron = f"%{q}%"
+    estados_permitidos = ("Pendiente", "Pagada")
+    estado = request.args.get("estado", "")
+    if estado not in estados_permitidos:
+        estado = ""
+    ordenes = {
+        "recientes": "f.fecha DESC, f.id_factura DESC",
+        "antiguas": "f.fecha ASC, f.id_factura ASC",
+        "mayor_total": "f.total DESC, f.id_factura DESC",
+        "menor_total": "f.total ASC, f.id_factura ASC",
+        "numero": "f.numero ASC, f.id_factura ASC",
+    }
+    orden = request.args.get("orden", "recientes")
+    if orden not in ordenes:
+        orden = "recientes"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+    # Solo se concatena una cláusula constante de la lista permitida.
     cursor.execute(
         """
         SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
-               f.id_pedido, p.equipo, s.nombre AS servicio_nombre
+               f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
+               COALESCE(f.equipo_modelo, p.modelo) AS modelo, COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre
         FROM facturas f
         LEFT JOIN pedidos p ON p.id_pedido = f.id_pedido
         LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
         WHERE f.id_usuario = %s
-        ORDER BY f.fecha DESC, f.id_factura DESC
-        """,
-        (current_user.id,),
+        AND (f.numero ILIKE %s
+             OR COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') ILIKE %s
+             OR f.estado ILIKE %s OR COALESCE(f.equipo_nombre, p.equipo) ILIKE %s OR f.id_pedido::text ILIKE %s)
+        AND (%s = '' OR f.estado = %s)
+        ORDER BY """ + ordenes[orden],
+        (current_user.id,) + (patron,) * 5 + (estado, estado),
     )
     facturas = cursor.fetchall()
     cursor.close()
     conn.close()
     return render_template(
-        "mis_facturas.html", facturas=facturas, active="mis_facturas"
+        "mis_facturas.html", facturas=facturas, q=q, estado=estado, orden=orden, active="mis_facturas"
     )
 
 
@@ -1052,11 +1459,12 @@ def descargar_factura(id):
 
     cursor.execute(
         f"""
-        SELECT f.id_factura, f.numero, f.fecha, f.total,
-               f.id_pedido, p.equipo,
+        SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
+               f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
+               COALESCE(f.equipo_modelo, p.modelo) AS modelo,
                u.usuario, u.correo,
                pu.nombres, pu.apellidos,
-               s.nombre AS servicio_nombre
+               COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre
         FROM facturas f
         LEFT JOIN usuarios u ON u.id_usuario = f.id_usuario
         LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
@@ -1104,6 +1512,8 @@ def descargar_factura(id):
         ["Correo", factura["correo"] or "No registrado"],
         ["Identificador del pedido", str(factura["id_pedido"] or "No vinculado")],
     ]
+    for fila in cliente_data[1:]:
+        fila[1] = Paragraph(escape(fila[1]), styles["Normal"])
     cliente_tabla = Table(cliente_data, colWidths=[1.7 * inch, ancho - 1.7 * inch])
     cliente_tabla.setStyle(
         TableStyle(
@@ -1122,17 +1532,23 @@ def descargar_factura(id):
             ]
         )
     )
-    cliente_tabla.wrapOn(documento, ancho, 150)
-    cliente_tabla.drawOn(documento, 72, 565)
+    _, cliente_altura = cliente_tabla.wrapOn(documento, ancho, 200)
+    cliente_y = 665 - cliente_altura
+    cliente_tabla.drawOn(documento, 72, cliente_y)
 
+    documento.setFont("Helvetica-Bold", 11)
+    documento.drawString(72, cliente_y - 24, "DETALLE DEL SERVICIO")
     precio = float(factura["total"] or 0)
+    equipo_detalle = "Equipo: " + escape(factura["equipo"] or "No especificado")
+    if factura["modelo"]:
+        equipo_detalle += "<br/>Modelo: " + escape(factura["modelo"])
     detalle_data = [
         ["Servicio", "Equipo", "Cantidad", "Precio"],
         [
             Paragraph(
-                factura["servicio_nombre"] or "Servicio no disponible", styles["Normal"]
+                escape(factura["servicio_nombre"] or "Servicio no disponible"), styles["Normal"]
             ),
-            Paragraph(factura["equipo"] or "No especificado", styles["Normal"]),
+            Paragraph(equipo_detalle, styles["Normal"]),
             "1",
             f"${precio:.2f}",
         ],
@@ -1156,10 +1572,11 @@ def descargar_factura(id):
             ]
         )
     )
-    detalle_tabla.wrapOn(documento, ancho, 100)
-    detalle_tabla.drawOn(documento, 72, 480)
+    _, detalle_altura = detalle_tabla.wrapOn(documento, ancho, 200)
+    detalle_y = cliente_y - 40 - detalle_altura
+    detalle_tabla.drawOn(documento, 72, detalle_y)
 
-    resumen_data = [["Subtotal", f"${precio:.2f}"], ["TOTAL", f"${precio:.2f}"]]
+    resumen_data = [["Subtotal", f"${precio:.2f}"], ["TOTAL", f"${precio:.2f}"], ["Estado de pago", factura["estado"]]]
     resumen_tabla = Table(
         resumen_data, colWidths=[1.5 * inch, 1.2 * inch], hAlign="RIGHT"
     )
@@ -1177,8 +1594,18 @@ def descargar_factura(id):
         )
     )
     resumen_tabla.wrapOn(documento, ancho, 70)
-    resumen_tabla.drawOn(documento, letter[0] - 72 - 2.7 * inch, 385)
+    resumen_y = detalle_y - 105
+    resumen_tabla.drawOn(documento, letter[0] - 72 - 2.7 * inch, resumen_y)
 
+    garantia_nota = Paragraph(
+        "<b>Garantía del servicio:</b><br/>"
+        "El servicio realizado cuenta con una garantía de 3 meses, sujeta a los términos y condiciones de PC-Fix. "
+        "La garantía cubre únicamente fallas relacionadas directamente con el trabajo realizado.<br/><br/>"
+        "Consulta los términos y condiciones y la política de garantía de PC-Fix para conocer coberturas y exclusiones.",
+        styles["Normal"],
+    )
+    _, nota_altura = garantia_nota.wrap(ancho, 150)
+    garantia_nota.drawOn(documento, 72, min(110, resumen_y - nota_altura - 24))
     documento.setFillColor(colors.HexColor("#4b5563"))
     documento.setFont("Helvetica-Oblique", 9)
     documento.drawCentredString(letter[0] / 2, 70, "Gracias por confiar en PC-Fix.")
@@ -1223,6 +1650,16 @@ def index():
     )
 
 
+@app.route("/terminos")
+def terminos():
+    return render_template("condiciones.html", garantia=False)
+
+
+@app.route("/garantia")
+def garantia():
+    return render_template("condiciones.html", garantia=True)
+
+
 @app.route("/conocenos")
 def conocenos():
     return render_template("conocenos.html", active="conocenos")
@@ -1240,21 +1677,73 @@ def contacto():
 @app.route("/productos")
 @login_required
 def servicios():
-    """Listar registros mediante SELECT y JOIN con PostgreSQL."""
+    q = request.args.get("q", "").strip()
+    estado = request.args.get("estado", "todos")
+    estados = {
+        "todos": "s.archivado = FALSE",
+        "activos": "s.activo = TRUE AND s.archivado = FALSE",
+        "pausados": "s.activo = FALSE AND s.archivado = FALSE",
+        "archivados": "s.archivado = TRUE",
+    }
+    if estado not in estados:
+        estado = "todos"
+    ordenes = {
+        "nombre": "s.nombre ASC, s.id_servicio ASC",
+        "menor_precio": "s.precio ASC, s.id_servicio ASC",
+        "mayor_precio": "s.precio DESC, s.id_servicio DESC",
+        "recientes": "s.id_servicio DESC",
+    }
+    orden = request.args.get("orden", "nombre")
+    if orden not in ordenes:
+        orden = "nombre"
+    proveedor = request.args.get("proveedor", type=int)
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    # Consulta relacionada entre servicios y proveedores con JOIN
-    cursor.execute("""
-        SELECT s.id_servicio, s.nombre, s.descripcion, s.precio, s.duracion, s.imagen, s.id_proveedor,
-               p.empresa AS proveedor_empresa
-        FROM servicios s
-        LEFT JOIN proveedores p ON s.id_proveedor = p.id_proveedor
-        ORDER BY s.id_servicio ASC
-    """)
-    servicios_db = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return render_template("servicios.html", active="servicios", servicios=servicios_db)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT id_proveedor, empresa FROM proveedores ORDER BY empresa")
+            proveedores_filtro = cursor.fetchall()
+            if proveedor not in {r["id_proveedor"] for r in proveedores_filtro}:
+                proveedor = None
+            condicion = estados[estado] if current_user.rol == "admin" else estados["activos"]
+            if current_user.rol != "admin":
+                estado = "activos"
+            cursor.execute(
+                """SELECT s.*, p.empresa AS proveedor_empresa
+                   FROM servicios s LEFT JOIN proveedores p ON s.id_proveedor = p.id_proveedor
+                   WHERE (""" + condicion + """)
+                     AND (%s IS NULL OR s.id_proveedor = %s)
+                     AND (s.nombre ILIKE %s OR s.descripcion ILIKE %s
+                          OR p.empresa ILIKE %s OR s.duracion ILIKE %s)
+                   ORDER BY """ + ordenes[orden],
+                (proveedor, proveedor) + (f"%{q}%",) * 4,
+            )
+            servicios_db = cursor.fetchall()
+    finally:
+        conn.close()
+    return render_template(
+        "servicios.html", active="servicios", servicios=servicios_db, q=q,
+        estado=estado, proveedor=proveedor, orden=orden,
+        proveedores_filtro=proveedores_filtro, eliminar_form=EliminarForm(),
+    )
+
+
+def nombre_servicio_duplicado(cursor, nombre, excluir=None):
+    cursor.execute("SELECT pg_advisory_xact_lock(hashtext(LOWER(BTRIM(%s))))", (nombre,))
+    cursor.execute(
+        """SELECT archivado FROM servicios
+           WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM(%s))
+             AND (%s IS NULL OR id_servicio <> %s)
+           ORDER BY archivado ASC LIMIT 1""",
+        (nombre, excluir, excluir),
+    )
+    fila = cursor.fetchone()
+    if fila is None:
+        return None
+    archivado = fila["archivado"] if isinstance(fila, dict) else fila[0]
+    return (
+        "Ya existe un servicio archivado con ese nombre. Puedes restaurarlo en lugar de crear uno nuevo."
+        if archivado else "Ya existe un servicio con ese nombre."
+    )
 
 
 @app.route("/servicios/nuevo", methods=["GET", "POST"])
@@ -1274,10 +1763,21 @@ def nuevo_servicio():
         )
         conn = obtener_conexion()
         cursor = conn.cursor()
+        form.nombre.data = form.nombre.data.strip()
+        duplicado = nombre_servicio_duplicado(cursor, form.nombre.data, None)
+        if duplicado:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            form.nombre.errors.append(duplicado)
+            return render_template(
+                "formulario_producto.html", active="servicios", form=form,
+                titulo="Nuevo Servicio",
+            )
         cursor.execute(
             """
-            INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor, requiere_entrega_equipo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
             (
                 form.nombre.data,
@@ -1286,6 +1786,7 @@ def nuevo_servicio():
                 form.duracion.data,
                 form.imagen.data,
                 id_prov,
+                form.requiere_entrega_equipo.data == "si",
             ),
         )
         conn.commit()
@@ -1323,12 +1824,20 @@ def editar_servicio(id):
 
     form = ProductoForm()
     form.id_proveedor.choices = obtener_opciones_proveedores()
+    if servicio["id_proveedor"] and servicio["id_proveedor"] not in dict(form.id_proveedor.choices):
+        cursor.execute("SELECT empresa FROM proveedores WHERE id_proveedor = %s", (servicio["id_proveedor"],))
+        proveedor_actual = cursor.fetchone()
+        if proveedor_actual:
+            form.id_proveedor.choices.append(
+                (servicio["id_proveedor"], proveedor_actual["empresa"] + " (Inactivo, asignado)")
+            )
     form.imagen.choices = obtener_imagenes_servicios()
 
     if request.method == "GET":
+        form.requiere_entrega_equipo.data = "si" if servicio["requiere_entrega_equipo"] else "no"
         form.nombre.data = servicio["nombre"]
         form.descripcion.data = servicio["descripcion"]
-        form.precio.data = float(servicio["precio"])
+        form.precio.data = servicio["precio"]
         form.duracion.data = servicio["duracion"]
         form.imagen.data = servicio["imagen"]
         form.id_proveedor.data = (
@@ -1341,10 +1850,21 @@ def editar_servicio(id):
             if form.id_proveedor.data and form.id_proveedor.data != 0
             else None
         )
+        form.nombre.data = form.nombre.data.strip()
+        duplicado = nombre_servicio_duplicado(cursor, form.nombre.data, id)
+        if duplicado:
+            conn.rollback()
+            cursor.close()
+            conn.close()
+            form.nombre.errors.append(duplicado)
+            return render_template(
+                "formulario_producto.html", active="servicios", form=form,
+                titulo="Editar Servicio",
+            )
         cursor.execute(
             """
             UPDATE servicios
-            SET nombre = %s, descripcion = %s, precio = %s, duracion = %s, imagen = %s, id_proveedor = %s
+            SET nombre = %s, descripcion = %s, precio = %s, duracion = %s, imagen = %s, id_proveedor = %s, requiere_entrega_equipo = %s
             WHERE id_servicio = %s
         """,
             (
@@ -1354,6 +1874,7 @@ def editar_servicio(id):
                 form.duracion.data,
                 form.imagen.data,
                 id_prov,
+                form.requiere_entrega_equipo.data == "si",
                 id,
             ),
         )
@@ -1376,19 +1897,80 @@ def editar_servicio(id):
     )
 
 
+def cambiar_activo(tabla, clave, id, activo):
+    """Los nombres SQL son constantes internas; los valores son parámetros."""
+    form = EliminarForm()
+    if not form.validate_on_submit():
+        abort(400)
+    conn = obtener_conexion()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE {tabla} SET activo = %s WHERE {clave} = %s"
+                + (" AND archivado = FALSE" if tabla == "servicios" else ""),
+                (activo, id),
+            )
+            if cursor.rowcount == 0:
+                abort(404)
+        conn.commit()
+    finally:
+        conn.close()
+    if tabla == "servicios":
+        flash("Servicio reactivado." if activo else "Servicio en pausa.", "success")
+    else:
+        flash("Registro activado." if activo else "Registro desactivado.", "success")
+    return redirect(url_for(tabla))
+
+
 @app.route("/servicios/eliminar/<int:id>", methods=["POST"])
+@app.route("/servicios/desactivar/<int:id>", methods=["POST"])
 @app.route("/productos/eliminar/<int:id>", methods=["POST"])
 @admin_required
 def eliminar_servicio(id):
-    """Eliminar únicamente el registro seleccionado utilizando DELETE FROM ... WHERE."""
+    return cambiar_activo("servicios", "id_servicio", id, False)
+
+
+@app.route("/servicios/activar/<int:id>", methods=["POST"])
+@admin_required
+def activar_servicio(id):
+    return cambiar_activo("servicios", "id_servicio", id, True)
+
+
+def cambiar_archivado_servicio(id, archivado):
+    form = EliminarForm()
+    if not form.validate_on_submit():
+        abort(400)
     conn = obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM servicios WHERE id_servicio = %s", (id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash("Servicio eliminado permanentemente de la base de datos.", "warning")
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """UPDATE servicios SET archivado = %s, activo = FALSE
+                   WHERE id_servicio = %s""",
+                (archivado, id),
+            )
+            if cursor.rowcount == 0:
+                abort(404)
+        conn.commit()
+    finally:
+        conn.close()
+    flash(
+        "Servicio archivado. Permanece en el historial." if archivado
+        else "Servicio restaurado en pausa. Puedes reactivarlo cuando esté disponible.",
+        "success",
+    )
     return redirect(url_for("servicios"))
+
+
+@app.route("/servicios/<int:id>/archivar", methods=["POST"])
+@admin_required
+def archivar_servicio(id):
+    return cambiar_archivado_servicio(id, True)
+
+
+@app.route("/servicios/<int:id>/restaurar", methods=["POST"])
+@admin_required
+def restaurar_servicio(id):
+    return cambiar_archivado_servicio(id, False)
 
 
 # ===== Módulos Complementarios (Clientes, Proveedores, Facturación) =====
@@ -1397,21 +1979,43 @@ def eliminar_servicio(id):
 @app.route("/clientes")
 @admin_required
 def clientes():
+    q = request.args.get("q", "").strip()
+    estados = [
+        "En revisión", "En reparación", "Entregado", "Pendiente"
+    ]
+    estado = request.args.get("estado", "")
+    if estado not in estados:
+        estado = ""
+    registro = request.args.get("registro", "")
+    if registro not in ("activos", "inactivos"):
+        registro = ""
+    activo = {"activos": True, "inactivos": False}.get(registro)
+    ordenes = {"nombre": "nombre ASC, id_cliente ASC",
+               "recientes": "id_cliente DESC", "antiguos": "id_cliente ASC"}
+    orden = request.args.get("orden", "nombre")
+    if orden not in ordenes:
+        orden = "nombre"
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
-        "SELECT id_cliente, nombre, cedula, telefono, correo, equipo, estado FROM clientes ORDER BY id_cliente"
-    )
-    clientes = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado, activo
+                   FROM clientes
+                   WHERE (nombre ILIKE %s OR cedula ILIKE %s OR telefono ILIKE %s
+                          OR correo ILIKE %s OR equipo ILIKE %s)
+                     AND (%s = '' OR estado = %s)
+                     AND (%s IS NULL OR activo = %s)
+                   ORDER BY """ + ordenes[orden],
+                (f"%{q}%",) * 5 + (estado, estado, activo, activo),
+            )
+            clientes_db = cursor.fetchall()
+    finally:
+        conn.close()
     return render_template(
-        "clientes.html",
-        active="clientes",
-        clientes=clientes,
+        "clientes.html", active="clientes", clientes=clientes_db, q=q,
+        estado=estado, estados=estados, registro=registro, orden=orden,
         eliminar_form=EliminarForm(),
     )
-
 
 @app.route("/clientes/nuevo", methods=["GET", "POST"])
 @admin_required
@@ -1421,14 +2025,15 @@ def nuevo_cliente():
         conn = obtener_conexion()
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO clientes (nombre, cedula, telefono, correo, equipo, estado)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO clientes (nombre, cedula, telefono, correo, equipo, modelo, estado)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (
                 form.nombre.data,
                 form.cedula.data,
                 form.telefono.data,
                 normalizar_correo(form.correo.data),
                 form.equipo.data,
+                (form.modelo.data or '').strip() or None,
                 form.estado.data,
             ),
         )
@@ -1448,7 +2053,7 @@ def editar_cliente(id):
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
-        "SELECT id_cliente, nombre, cedula, telefono, correo, equipo, estado FROM clientes WHERE id_cliente = %s",
+        "SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado FROM clientes WHERE id_cliente = %s",
         (id,),
     )
     cliente = cursor.fetchone()
@@ -1463,17 +2068,19 @@ def editar_cliente(id):
         form.telefono.data = cliente["telefono"]
         form.correo.data = cliente["correo"]
         form.equipo.data = cliente["equipo"]
+        form.modelo.data = cliente["modelo"]
         form.estado.data = cliente["estado"]
     elif form.validate_on_submit():
         cursor.execute(
             """UPDATE clientes SET nombre = %s, cedula = %s, telefono = %s,
-               correo = %s, equipo = %s, estado = %s WHERE id_cliente = %s""",
+               correo = %s, equipo = %s, modelo = %s, estado = %s WHERE id_cliente = %s""",
             (
                 form.nombre.data,
                 form.cedula.data,
                 form.telefono.data,
                 normalizar_correo(form.correo.data),
                 form.equipo.data,
+                (form.modelo.data or '').strip() or None,
                 form.estado.data,
                 id,
             ),
@@ -1491,34 +2098,17 @@ def editar_cliente(id):
 
 
 @app.route("/clientes/eliminar/<int:id>", methods=["POST"])
+@app.route("/clientes/desactivar/<int:id>", methods=["POST"])
 @admin_required
 def eliminar_cliente(id):
-    form = EliminarForm()
-    if not form.validate_on_submit():
-        abort(400)
-    conn = obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("SELECT 1 FROM facturas WHERE id_cliente = %s LIMIT 1", (id,))
-    if cursor.fetchone():
-        conn.rollback()
-        cursor.close()
-        conn.close()
-        flash(
-            "No se puede eliminar este cliente porque tiene facturas asociadas.",
-            "danger",
-        )
-        return redirect(url_for("clientes"))
-    cursor.execute("DELETE FROM clientes WHERE id_cliente = %s", (id,))
-    if cursor.rowcount == 0:
-        conn.rollback()
-        cursor.close()
-        conn.close()
-        abort(404)
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash("Cliente eliminado con éxito.", "warning")
-    return redirect(url_for("clientes"))
+    return cambiar_activo("clientes", "id_cliente", id, False)
+
+
+@app.route("/clientes/activar/<int:id>", methods=["POST"])
+@admin_required
+def activar_cliente(id):
+    return cambiar_activo("clientes", "id_cliente", id, True)
+
 
 
 @app.route("/proveedores")
@@ -1527,7 +2117,7 @@ def proveedores():
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
-        "SELECT id_proveedor, empresa, contacto, telefono, categoria FROM proveedores ORDER BY id_proveedor"
+        "SELECT id_proveedor, empresa, contacto, telefono, categoria, activo FROM proveedores ORDER BY id_proveedor"
     )
     proveedores = cursor.fetchall()
     cursor.close()
@@ -1618,24 +2208,17 @@ def editar_proveedor(id):
 
 
 @app.route("/proveedores/eliminar/<int:id>", methods=["POST"])
+@app.route("/proveedores/desactivar/<int:id>", methods=["POST"])
 @admin_required
 def eliminar_proveedor(id):
-    form = EliminarForm()
-    if not form.validate_on_submit():
-        abort(400)
-    conn = obtener_conexion()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM proveedores WHERE id_proveedor = %s", (id,))
-    if cursor.rowcount == 0:
-        conn.rollback()
-        cursor.close()
-        conn.close()
-        abort(404)
-    conn.commit()
-    cursor.close()
-    conn.close()
-    flash("Proveedor eliminado con éxito.", "warning")
-    return redirect(url_for("proveedores"))
+    return cambiar_activo("proveedores", "id_proveedor", id, False)
+
+
+@app.route("/proveedores/activar/<int:id>", methods=["POST"])
+@admin_required
+def activar_proveedor(id):
+    return cambiar_activo("proveedores", "id_proveedor", id, True)
+
 
 
 @app.route("/facturacion")
@@ -1645,7 +2228,8 @@ def facturacion():
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute("""SELECT f.numero,
                   COALESCE(c.nombre, NULLIF(CONCAT_WS(' ', pu.nombres, pu.apellidos), ''), u.usuario, u.correo, 'Sin cliente') AS cliente,
-                  s.nombre AS servicio, f.fecha, f.total, f.estado
+                  COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio, f.fecha, f.total, f.estado,
+                  f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
            FROM facturas f
            LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
            LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
@@ -1661,50 +2245,10 @@ def facturacion():
 @app.route("/facturacion/nuevo", methods=["GET", "POST"])
 @admin_required
 def nueva_factura():
-    form = FacturacionForm()
-    conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
-        "SELECT id_cliente, nombre FROM clientes ORDER BY nombre, id_cliente"
-    )
-    form.id_cliente.choices = [
-        (str(cliente["id_cliente"]), cliente["nombre"]) for cliente in cursor.fetchall()
-    ]
-    cursor.execute(
-        "SELECT id_servicio, nombre FROM servicios ORDER BY nombre, id_servicio"
-    )
-    form.id_servicio.choices = [
-        (str(servicio["id_servicio"]), servicio["nombre"])
-        for servicio in cursor.fetchall()
-    ]
-    if form.validate_on_submit():
-        numero = f"FAC-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-        cursor.execute(
-            """INSERT INTO facturas (numero, id_cliente, id_servicio, fecha, total, estado)
-               VALUES (%s, %s, %s, %s, %s, %s)""",
-            (
-                numero,
-                int(form.id_cliente.data),
-                int(form.id_servicio.data),
-                form.fecha.data,
-                form.total.data,
-                form.estado.data,
-            ),
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        flash("Factura registrada con éxito.", "success")
-        return redirect(url_for("facturacion"))
-    cursor.close()
-    conn.close()
-    return render_template(
-        "formulario_facturacion.html",
-        active="facturacion",
-        form=form,
-        titulo="Nueva Factura",
-    )
+    """Compatibilidad con enlaces antiguos: no crea facturas manuales."""
+    flash("Las facturas se emiten desde pedidos entregados.", "info")
+    return redirect(url_for("pedidos_admin"))
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="localhost")

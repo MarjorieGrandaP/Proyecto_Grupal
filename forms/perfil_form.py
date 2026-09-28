@@ -1,3 +1,5 @@
+from .nombre_personal import campo_nombre_personal
+from wtforms.validators import Regexp
 import re
 
 from flask_wtf import FlaskForm
@@ -15,27 +17,18 @@ def validar_correo(form, field):
 class PerfilForm(FlaskForm):
     """Formulario para actualizar datos personales sin permitir cambiar el rol."""
 
-    nombres = StringField(
-        "Nombres",
-        validators=[
-            DataRequired(message="Los nombres son obligatorios."),
-            Length(max=100),
-        ],
-    )
-    apellidos = StringField(
-        "Apellidos",
-        validators=[
-            DataRequired(message="Los apellidos son obligatorios."),
-            Length(max=100),
-        ],
-    )
+    nombres = campo_nombre_personal("Nombres")
+
+    apellidos = campo_nombre_personal("Apellidos")
+
     correo = StringField(
         "Correo electrónico",
         validators=[Optional(), Length(max=120), validar_correo],
     )
     telefono = StringField(
         "Teléfono",
-        validators=[Optional(), Length(max=30)],
+        render_kw={"inputmode": "numeric", "pattern": "[0-9]+"},
+        validators=[Optional(strip_whitespace=False), Regexp(r"\A[0-9]+\Z", message="El teléfono debe contener solo dígitos."), Length(max=30)],
     )
     imagen = FileField("Imagen de perfil")
     submit = SubmitField("Guardar cambios")

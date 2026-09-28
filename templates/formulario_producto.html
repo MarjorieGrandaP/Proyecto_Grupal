@@ -83,6 +83,13 @@
                                 Ejemplo: servicio-1</div>
                         </div>
 
+                        <div class="mb-4">
+                            {{ form.requiere_entrega_equipo.label(class="form-label fw-bold") }}
+                            {{ form.requiere_entrega_equipo(class="form-select") }}
+                            {% for error in form.requiere_entrega_equipo.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                             <a href="{{ url_for('servicios') }}" class="btn btn-secondary me-md-2">Cancelar</a>
                             {{ form.submit(class="btn btn-primary") }}

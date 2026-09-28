@@ -31,17 +31,17 @@
                 {% for proveedor in proveedores %}
                 <tr>
                     <td>{{ proveedor.id_proveedor }}</td>
-                    <td class="fw-bold">{{ proveedor.empresa }}</td>
+                    <td class="fw-bold">{{ proveedor.empresa }} <span class="badge {{ 'bg-success' if proveedor.activo else 'bg-secondary' }}">{{ 'Activo' if proveedor.activo else 'Inactivo' }}</span></td>
                     <td>{{ proveedor.contacto }}</td>
                     <td>{{ proveedor.telefono }}</td>
                     <td><span class="badge bg-info text-dark">{{ proveedor.categoria }}</span></td>
                     <td>
                         <a href="{{ url_for('editar_proveedor', id=proveedor.id_proveedor) }}"
                             class="btn btn-sm btn-primary">Editar</a>
-                        <form method="POST" action="{{ url_for('eliminar_proveedor', id=proveedor.id_proveedor) }}"
+                        <form method="POST" action="{{ url_for('eliminar_proveedor' if proveedor.activo else 'activar_proveedor', id=proveedor.id_proveedor) }}"
                             class="d-inline">
                             {{ eliminar_form.hidden_tag() }}
-                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                            <button type="submit" class="btn btn-sm btn-danger">{{ 'Desactivar' if proveedor.activo else 'Activar' }}</button>
                         </form>
                     </td>
                 </tr>

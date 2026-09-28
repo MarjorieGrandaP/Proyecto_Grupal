@@ -1,8 +1,9 @@
+from decimal import Decimal
 from flask_wtf import FlaskForm
 
 from wtforms import (
     StringField,
-    FloatField,
+    DecimalField,
     SubmitField,
     SelectField,
 )
@@ -51,11 +52,11 @@ class ProductoForm(FlaskForm):
     #
     # NumberRange evita registrar valores iguales o menores
     # a cero.
-    precio = FloatField(
+    precio = DecimalField(
         "Precio ($)",
         validators=[
             InputRequired(message="El precio es obligatorio."),
-            NumberRange(min=0.01, message="El precio debe ser mayor a 0."),
+            NumberRange(min=Decimal('0.01'), max=Decimal('99999999.99'), message="El precio debe estar entre 0.01 y 99999999.99."),
         ],
     )
 
@@ -119,4 +120,10 @@ class ProductoForm(FlaskForm):
     # ======================================================
     # BOTÓN DEL FORMULARIO
     # ======================================================
+    requiere_entrega_equipo = SelectField(
+        "¿Requiere que el cliente deje o retire físicamente el equipo?",
+        choices=[("si", "Sí"), ("no", "No")],
+        default="si",
+        validators=[DataRequired(message="Selecciona la modalidad del servicio.")],
+    )
     submit = SubmitField("Guardar")

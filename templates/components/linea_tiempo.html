@@ -1,0 +1,25 @@
+<div class="mb-4">
+    <h3 class="h5">Pedido #{{ pedido.id_pedido }} · {{ pedido.equipo }}</h3>
+    {% if pedido.modelo %}<p class="text-muted">Modelo: {{ pedido.modelo }}</p>{% endif %}
+    <span class="badge {{ colores_pedido.get(pedido.estado, 'bg-secondary') }}">{{ pedido.estado }}</span>
+    <p class="mt-2 mb-0">{{ mensaje_estado_pedido(pedido.estado, pedido.requiere_entrega_equipo) }}</p>
+    <div class="small text-muted mt-2">Anticipo: {{ 'Pagado' if pedido.anticipo_pagado else 'Solicitado, pendiente de pago' if pedido.anticipo_solicitado else 'No solicitado' }}</div>
+</div>
+<ol class="list-unstyled border-start border-3 ps-4">
+    {% for evento in historial %}
+    <li class="mb-4">
+        <span class="badge {{ colores_pedido.get(evento.estado_nuevo, 'bg-secondary') }}">{{ evento.estado_nuevo }}</span>
+        <time class="d-block small text-muted mt-2" datetime="{{ evento.fecha_hora.isoformat() }}">{{ evento.fecha_hora.strftime('%d/%m/%Y %H:%M:%S') }}</time>
+        {% if current_user.rol == 'admin' %}<div class="small mb-2">Realizado por: <strong>{{ evento.actor or 'Sistema / usuario no registrado' }}</strong></div>{% endif %}
+        <div>{{ mensaje_estado_pedido(evento.estado_nuevo, pedido.requiere_entrega_equipo) }}</div>
+        {% if current_user.rol == 'admin' and evento.motivo_cancelacion %}<div class="mt-2"><strong>Motivo:</strong> {{ evento.motivo_cancelacion }}</div>{% endif %}
+        {% if current_user.rol == 'admin' %}<div class="small text-muted mt-2">Observaciones: {{ evento.observacion or 'Sin observaciones registradas.' }}</div>{% endif %}
+    </li>
+    {% else %}
+    <li class="text-muted">Aún no hay cambios registrados.</li>
+    {% endfor %}
+</ol>
+<p class="small text-muted mb-0">Los registros anteriores a esta función muestran el estado conocido al incorporar el seguimiento.</p>
+
+{% include "components/observaciones_pedido.html" %}
+{% include "components/garantia_pedido.html" %}

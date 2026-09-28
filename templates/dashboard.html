@@ -1,228 +1,51 @@
 {% extends "base.html" %}
-
 {% block title %}PC-Fix - Panel de administración{% endblock %}
-
 {% block content %}
-
-<!-- ======================================================
-     PANEL PRIVADO DEL SISTEMA
-     Esta página solo puede ser utilizada por usuarios
-     autenticados porque la ruta /dashboard está protegida
-     con @login_required en app.py.
-======================================================= -->
-
-<section class="seccion-contenido my-4">
-
-    <!-- Mensaje de bienvenida utilizando current_user -->
-    <div class="text-center mb-5">
-
-        <h2 class="titulo-seccion">
-            {% if current_user.rol == "admin" %}
-            Panel de administración
-            {% else %}
-            Panel de usuario
-            {% endif %}
-        </h2>
-
-        <p class="lead">
-            Bienvenido,
-            <strong>{{ current_user.usuario }}</strong>
-        </p>
-
-        <p class="text-muted">
-            {% if current_user.rol == "admin" %}
-            Desde este panel puedes acceder a los módulos internos de PC-Fix.
-            {% else %}
-            Desde este panel puedes consultar los servicios técnicos disponibles.
-            {% endif %}
-        </p>
-
-        <span class="badge bg-secondary">Rol: {{ current_user.rol }}</span>
-
+<section class="panel-admin my-4">
+    <div class="admin-hero mb-4">
+        <span class="badge bg-primary mb-3">Administrador</span>
+        <h2>Bienvenido, {{ current_user.usuario }}</h2>
+        <p class="mb-0">Gestiona los servicios, acompaña cada pedido y consulta el historial de PC-Fix.</p>
     </div>
-
-    {% if current_user.rol == "admin" and resumen %}
-    <div class="row g-3 mb-4 text-center">
-        <div class="col-6 col-md">
-            <div class="card shadow-sm">
-                <div class="card-body"><strong>{{ resumen.total }}</strong><br><small>Total</small></div>
+    <div class="row g-3 mb-4">
+        {% for icono, titulo, valor in [
+            ('collection', 'Total', resumen.total),
+            ('inbox', 'Solicitados', resumen.solicitados),
+            ('tools', 'En revisión / reparación', resumen.en_proceso),
+            ('check2-circle', 'Listos', resumen.listos),
+            ('box-seam', 'Entregados', resumen.entregados)
+        ] %}
+        <div class="col-6 col-lg">
+            <div class="admin-estadistica h-100 p-3">
+                <i class="bi bi-{{ icono }} text-primary fs-4" aria-hidden="true"></i>
+                <strong class="d-block fs-2 my-1">{{ valor or 0 }}</strong>
+                <span class="small text-muted">{{ titulo }}</span>
             </div>
         </div>
-        <div class="col-6 col-md">
-            <div class="card shadow-sm">
-                <div class="card-body"><strong>{{ resumen.solicitados }}</strong><br><small>Solicitados</small></div>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card shadow-sm">
-                <div class="card-body"><strong>{{ resumen.en_proceso }}</strong><br><small>En revisión /
-                        reparación</small></div>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card shadow-sm">
-                <div class="card-body"><strong>{{ resumen.listos }}</strong><br><small>Listos</small></div>
-            </div>
-        </div>
-        <div class="col-6 col-md">
-            <div class="card shadow-sm">
-                <div class="card-body"><strong>{{ resumen.entregados }}</strong><br><small>Entregados</small></div>
-            </div>
-        </div>
+        {% endfor %}
     </div>
-    {% endif %}
-
-
-    <!-- Accesos rápidos a los módulos privados -->
-    <div class="row g-4 justify-content-center">
-
-        <!-- Servicios -->
-        <div class="col-md-6 col-lg-3">
-
-            <div class="card h-100 shadow-sm text-center">
-
-                <div class="card-body">
-
-                    <h5 class="card-title">
-                        Servicios
-                    </h5>
-
-                    <p class="card-text">
-                        {% if current_user.rol == "admin" %}
-                        Consultar, registrar, modificar y eliminar
-                        los servicios técnicos.
-                        {% else %}
-                        Consultar los servicios técnicos disponibles.
-                        {% endif %}
-                    </p>
-
-                    <a href="{{ url_for('servicios') }}" class="btn btn-primary">
-                        Ir a Servicios
-                    </a>
-
+    <div class="row g-4">
+        {% for icono, titulo, texto, ruta in [
+            ('tools', 'Servicios', 'Organiza el catálogo y administra su disponibilidad.', 'servicios'),
+            ('clipboard-check', 'Pedidos', 'Revisa solicitudes, actualiza estados y emite facturas.', 'pedidos_admin'),
+            ('shield-check', 'Auditoría', 'Consulta los cambios registrados y su trazabilidad.', 'auditoria'),
+            ('people', 'Clientes', 'Encuentra datos de contacto y equipos registrados.', 'clientes'),
+            ('truck', 'Proveedores', 'Gestiona los contactos y proveedores de tus servicios.', 'proveedores'),
+            ('receipt', 'Facturación', 'Consulta facturas e información histórica de los servicios.', 'facturacion')
+        ] %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <article class="card admin-card h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <div class="admin-icono mb-3"><i class="bi bi-{{ icono }}" aria-hidden="true"></i></div>
+                    <h3 class="h5">{{ titulo }}</h3>
+                    <p class="mb-4">{{ texto }}</p>
+                    <a href="{{ url_for(ruta) }}" class="btn btn-outline-primary mt-auto align-self-start">Ir a {{ titulo }}
+                        <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></a>
                 </div>
-
-            </div>
-
+            </article>
         </div>
-
-
-        {% if current_user.rol == "admin" %}
-        <!-- Pedidos -->
-        <div class="col-md-6 col-lg-3">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Pedidos</h5>
-                    <p class="card-text">Consultar y actualizar las solicitudes de los clientes.</p>
-                    <a href="{{ url_for('pedidos_admin') }}" class="btn btn-primary">Ir a Pedidos</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Auditoría -->
-        <div class="col-md-6 col-lg-3">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Auditoría</h5>
-                    <p class="card-text">Revisar operaciones registradas en la base de datos.</p>
-                    <a href="{{ url_for('auditoria') }}" class="btn btn-primary">Ir a Auditoría</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- Clientes -->
-        <div class="col-md-6 col-lg-3">
-
-            <div class="card h-100 shadow-sm text-center">
-
-                <div class="card-body">
-
-                    <h5 class="card-title">
-                        Clientes
-                    </h5>
-
-                    <p class="card-text">
-                        Consultar y administrar la información
-                        de los clientes.
-                    </p>
-
-                    <a href="{{ url_for('clientes') }}" class="btn btn-primary">
-                        Ir a Clientes
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- Proveedores -->
-        <div class="col-md-6 col-lg-3">
-
-            <div class="card h-100 shadow-sm text-center">
-
-                <div class="card-body">
-
-                    <h5 class="card-title">
-                        Proveedores
-                    </h5>
-
-                    <p class="card-text">
-                        Consultar y administrar los proveedores
-                        vinculados al sistema.
-                    </p>
-
-                    <a href="{{ url_for('proveedores') }}" class="btn btn-primary">
-                        Ir a Proveedores
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <!-- Facturación -->
-        <div class="col-md-6 col-lg-3">
-
-            <div class="card h-100 shadow-sm text-center">
-
-                <div class="card-body">
-
-                    <h5 class="card-title">
-                        Facturación
-                    </h5>
-
-                    <p class="card-text">
-                        Consultar y gestionar la información
-                        correspondiente a facturación.
-                    </p>
-
-                    <a href="{{ url_for('facturacion') }}" class="btn btn-primary">
-                        Ir a Facturación
-                    </a>
-
-                </div>
-
-            </div>
-
-        </div>
-
+        {% endfor %}
     </div>
-    {% endif %}
-
-
-    <!-- Opción visible para finalizar la sesión -->
-    <div class="text-center mt-5">
-
-        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
-            Cerrar sesión
-        </a>
-
-    </div>
-
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary mt-4">Cerrar sesión</a>
 </section>
-
 {% endblock %}

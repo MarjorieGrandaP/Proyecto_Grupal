@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS clientes (
     estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente'
 );
 
+-- Eliminación lógica: conserva datos, claves foráneas y estados al reejecutar.
+ALTER TABLE servicios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE proveedores ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- 4. Tabla Facturas
 CREATE TABLE IF NOT EXISTS facturas (
     id_factura SERIAL PRIMARY KEY,
@@ -138,7 +143,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     fecha_solicitud TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pedidos_estado_check CHECK (
-        estado IN ('Solicitado', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
+        estado IN ('Solicitado', 'Pendiente de anticipo', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
     ),
     CONSTRAINT pedidos_usuario_fk
         FOREIGN KEY (id_usuario)
@@ -169,7 +174,7 @@ BEGIN
           AND conrelid = 'pedidos'::regclass
     ) THEN
         ALTER TABLE pedidos ADD CONSTRAINT pedidos_estado_check CHECK (
-            estado IN ('Solicitado', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
+            estado IN ('Solicitado', 'Pendiente de anticipo', 'En revisión', 'En reparación', 'Listo', 'Entregado', 'Cancelado')
         );
     END IF;
 END $$;
@@ -348,27 +353,27 @@ WHERE NOT EXISTS (SELECT 1 FROM proveedores WHERE empresa = 'PC Parts Ecuador');
 -- Inserción de Servicios con relación a Proveedores
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Mantenimiento Preventivo', 'Limpieza interna profunda, cambio de pasta térmica de alta calidad y revisión exhaustiva de componentes.', 25.00, '1 hora', 'servicio-1.jpg', 1
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Mantenimiento Preventivo');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Mantenimiento Preventivo')));
 
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Mantenimiento Correctivo', 'Diagnóstico preciso, reparación a nivel de placa y reemplazo de hardware dañado.', 40.00, '2 horas', 'servicio-2.jpg', 1
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Mantenimiento Correctivo');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Mantenimiento Correctivo')));
 
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Optimización y Limpieza', 'Aceleramos el rendimiento de tu sistema operativo y eliminamos virus o malware.', 20.00, '45 minutos', 'servicio-3.jpg', 3
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Optimización y Limpieza');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Optimización y Limpieza')));
 
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Instalación de Software', 'Instalación desde cero y actualización de sistemas operativos y programas esenciales.', 15.00, '30 minutos', 'servicio-4.jpg', 3
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Instalación de Software');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Instalación de Software')));
 
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Formateo e Instalación de Windows', 'Formateo seguro del disco, instalación de Windows y configuración de controladores.', 30.00, '1.5 horas', 'servicio-4.jpg', 3
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Formateo e Instalación de Windows');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Formateo e Instalación de Windows')));
 
 INSERT INTO servicios (nombre, descripcion, precio, duracion, imagen, id_proveedor)
 SELECT 'Recuperación de Datos', 'Recuperación de información vital desde discos dañados, USB o tarjetas de memoria.', 60.00, 'Variable', 'servicio-1.jpg', 2
-WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE nombre = 'Recuperación de Datos');
+WHERE NOT EXISTS (SELECT 1 FROM servicios WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM('Recuperación de Datos')));
 
 -- Inserción de Clientes
 INSERT INTO clientes (nombre, cedula, telefono, correo, equipo, estado)
@@ -403,3 +408,259 @@ WHERE NOT EXISTS (SELECT 1 FROM facturas WHERE numero = 'FAC-003');
 INSERT INTO facturas (numero, id_cliente, id_servicio, fecha, total, estado)
 SELECT 'FAC-004', 4, 5, '2026-08-15', 30.00, 'Pendiente'
 WHERE NOT EXISTS (SELECT 1 FROM facturas WHERE numero = 'FAC-004');
+
+
+-- Copia histórica del servicio: conserva valores existentes y permite reejecución.
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS servicio_nombre VARCHAR(100);
+
+UPDATE facturas f
+SET servicio_nombre = s.nombre
+FROM servicios s
+WHERE f.id_servicio = s.id_servicio
+  AND f.servicio_nombre IS NULL;
+
+-- Migración de historial, archivado y nombres únicos (también disponible por separado).
+-- Reparación conservadora: nunca sobrescribe un snapshot existente.
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS servicio_nombre VARCHAR(100);
+ALTER TABLE servicios ADD COLUMN IF NOT EXISTS archivado BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 1. Relación directa todavía existente.
+UPDATE facturas f SET servicio_nombre = s.nombre
+FROM servicios s
+WHERE f.id_servicio = s.id_servicio
+  AND NULLIF(BTRIM(f.servicio_nombre), '') IS NULL;
+
+-- 2. Relación conservada en el pedido.
+UPDATE facturas f SET servicio_nombre = s.nombre
+FROM pedidos p JOIN servicios s ON s.id_servicio = p.id_servicio
+WHERE f.id_pedido = p.id_pedido
+  AND NULLIF(BTRIM(f.servicio_nombre), '') IS NULL;
+
+-- 3. Auditoría: aceptar solo un id de servicio y un nombre inequívocos.
+-- Si hubo varios ids/nombres históricos, no adivinar cuál fue facturado.
+WITH referencias_brutas AS (
+    SELECT f.id_factura, j.datos->>'id_servicio' AS servicio_id,
+           CASE WHEN a.tabla = 'facturas' THEN 1 ELSE 2 END AS prioridad
+    FROM facturas f
+    JOIN auditoria a ON
+        (a.tabla = 'facturas' AND a.id_registro = f.id_factura::text)
+        OR (a.tabla = 'pedidos' AND a.id_registro = f.id_pedido::text)
+    CROSS JOIN LATERAL (VALUES (a.datos_anteriores), (a.datos_nuevos)) AS j(datos)
+    WHERE NULLIF(BTRIM(f.servicio_nombre), '') IS NULL
+      AND NULLIF(j.datos->>'id_servicio', '') IS NOT NULL
+), referencias AS (
+    -- La relación registrada en la propia factura prevalece sobre cambios del pedido.
+    SELECT r.id_factura, r.servicio_id FROM referencias_brutas r
+    WHERE r.prioridad = (
+        SELECT MIN(r2.prioridad) FROM referencias_brutas r2
+        WHERE r2.id_factura = r.id_factura
+    )
+), ids_unicos AS (
+    SELECT id_factura, MIN(servicio_id) AS servicio_id
+    FROM referencias GROUP BY id_factura
+    HAVING COUNT(DISTINCT servicio_id) = 1
+), nombres AS (
+    SELECT i.id_factura, j.datos->>'nombre' AS nombre
+    FROM ids_unicos i
+    JOIN auditoria a ON a.tabla = 'servicios' AND a.id_registro = i.servicio_id
+    CROSS JOIN LATERAL (VALUES (a.datos_anteriores), (a.datos_nuevos)) AS j(datos)
+    WHERE NULLIF(BTRIM(j.datos->>'nombre'), '') IS NOT NULL
+), recuperables AS (
+    SELECT id_factura, MIN(nombre) AS nombre
+    FROM nombres GROUP BY id_factura
+    HAVING COUNT(DISTINCT nombre) = 1
+)
+UPDATE facturas f SET servicio_nombre = r.nombre
+FROM recuperables r
+WHERE f.id_factura = r.id_factura
+  AND NULLIF(BTRIM(f.servicio_nombre), '') IS NULL;
+
+-- No eliminar ni fusionar duplicados preexistentes durante una migración.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM servicios GROUP BY LOWER(BTRIM(nombre)) HAVING COUNT(*) > 1
+    ) THEN
+        CREATE UNIQUE INDEX IF NOT EXISTS servicios_nombre_normalizado_unique
+            ON servicios (LOWER(BTRIM(nombre)));
+    ELSE
+        RAISE NOTICE 'Existen servicios duplicados; revisar antes de crear el índice único.';
+    END IF;
+END $$;
+
+-- Modalidad y seguimiento persistente; migración aditiva y reejecutable.
+ALTER TABLE servicios
+ADD COLUMN IF NOT EXISTS requiere_entrega_equipo BOOLEAN NOT NULL DEFAULT TRUE;
+
+CREATE TABLE IF NOT EXISTS historial_estado_pedidos (
+    id_historial SERIAL PRIMARY KEY,
+    id_pedido INTEGER NOT NULL REFERENCES pedidos(id_pedido) ON DELETE CASCADE,
+    estado_anterior VARCHAR(30),
+    estado_nuevo VARCHAR(30) NOT NULL,
+    fecha_hora TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_usuario_actor INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS historial_estado_pedidos_pedido_fecha
+ON historial_estado_pedidos (id_pedido, fecha_hora, id_historial);
+
+CREATE OR REPLACE FUNCTION registrar_historial_estado_pedido()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    actor INTEGER;
+BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.estado IS NOT DISTINCT FROM NEW.estado THEN
+        RETURN NEW;
+    END IF;
+    -- Configuración local a la transacción, definida por las rutas autenticadas.
+    actor := NULLIF(current_setting('pcfix.usuario_actor', TRUE), '')::INTEGER;
+    INSERT INTO historial_estado_pedidos
+        (id_pedido, estado_anterior, estado_nuevo, id_usuario_actor)
+    VALUES (NEW.id_pedido,
+            CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.estado END,
+            NEW.estado, actor);
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS historial_estado_pedido ON pedidos;
+CREATE TRIGGER historial_estado_pedido
+AFTER INSERT OR UPDATE OF estado ON pedidos
+FOR EACH ROW EXECUTE FUNCTION registrar_historial_estado_pedido();
+
+-- Pedidos previos: registrar únicamente el estado observado hoy.
+-- No inventar fechas ni transiciones pasadas que esta tabla aún no registraba.
+INSERT INTO historial_estado_pedidos (id_pedido, estado_nuevo)
+SELECT p.id_pedido, p.estado FROM pedidos p
+WHERE NOT EXISTS (
+    SELECT 1 FROM historial_estado_pedidos h WHERE h.id_pedido = p.id_pedido
+);
+
+-- Ampliación de pedidos: cancelación motivada, anticipo y aceptación.
+ALTER TABLE pedidos
+    ADD COLUMN IF NOT EXISTS motivo_cancelacion VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS observacion TEXT,
+    ADD COLUMN IF NOT EXISTS cancelado_por INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS fecha_cancelacion TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS anticipo_solicitado BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS anticipo_pagado BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS terminos_aceptados BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS fecha_aceptacion_terminos TIMESTAMP;
+ALTER TABLE pedidos DROP CONSTRAINT IF EXISTS pedidos_estado_check;
+ALTER TABLE pedidos ADD CONSTRAINT pedidos_estado_check CHECK (
+    estado IN ('Solicitado','Pendiente de anticipo','En revisión','En reparación','Listo','Entregado','Cancelado')
+);
+ALTER TABLE historial_estado_pedidos
+    ADD COLUMN IF NOT EXISTS observacion TEXT,
+    ADD COLUMN IF NOT EXISTS motivo_cancelacion VARCHAR(100);
+
+CREATE OR REPLACE FUNCTION registrar_historial_estado_pedido()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE actor INTEGER;
+BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.estado IS NOT DISTINCT FROM NEW.estado THEN
+        RETURN NEW;
+    END IF;
+    actor := NULLIF(current_setting('pcfix.usuario_actor', TRUE), '')::INTEGER;
+    INSERT INTO historial_estado_pedidos
+        (id_pedido,estado_anterior,estado_nuevo,id_usuario_actor,observacion,motivo_cancelacion)
+    VALUES (NEW.id_pedido,
+        CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.estado END,
+        NEW.estado, actor, NEW.observacion,
+        CASE WHEN NEW.estado = 'Cancelado' THEN NEW.motivo_cancelacion ELSE NULL END);
+    RETURN NEW;
+END;
+$$;
+
+-- Corrección verificable: una factura emitida implica un pedido entregado.
+-- Los triggers existentes conservan el estado anterior y esta observación.
+UPDATE pedidos p
+SET estado = 'Entregado', fecha_actualizacion = CURRENT_TIMESTAMP,
+    observacion = 'Corrección de consistencia: pedido con factura emitida ajustado a Entregado.'
+WHERE estado <> 'Entregado'
+  AND EXISTS (SELECT 1 FROM facturas f WHERE f.id_pedido = p.id_pedido);
+
+-- Equipo/modelo y copia histórica en facturas. No sobrescribir snapshots existentes.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modelo VARCHAR(100);
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS modelo VARCHAR(100);
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS equipo_nombre VARCHAR(100);
+ALTER TABLE facturas ADD COLUMN IF NOT EXISTS equipo_modelo VARCHAR(100);
+
+-- La cadena vacía conserva explícitamente que el modelo no era conocido.
+-- Así una corrección posterior no lo incorpora a una factura ya emitida.
+UPDATE facturas f
+SET equipo_nombre = COALESCE(f.equipo_nombre, p.equipo),
+    equipo_modelo = COALESCE(f.equipo_modelo, p.modelo, '')
+FROM pedidos p
+WHERE f.id_pedido = p.id_pedido
+  AND (f.equipo_nombre IS NULL OR f.equipo_modelo IS NULL);
+
+-- Facturas manuales antiguas: usar únicamente su cliente relacionado.
+UPDATE facturas f
+SET equipo_nombre = COALESCE(f.equipo_nombre, c.equipo),
+    equipo_modelo = COALESCE(f.equipo_modelo, c.modelo, '')
+FROM clientes c
+WHERE f.id_pedido IS NULL AND f.id_cliente = c.id_cliente
+  AND (f.equipo_nombre IS NULL OR f.equipo_modelo IS NULL);
+
+-- Notas independientes: no alteran ni reemplazan transiciones anteriores.
+CREATE TABLE IF NOT EXISTS observaciones_pedidos (
+    id_observacion BIGSERIAL PRIMARY KEY,
+    id_pedido INTEGER NOT NULL REFERENCES pedidos(id_pedido),
+    texto TEXT NOT NULL CHECK (length(btrim(texto)) BETWEEN 1 AND 2000),
+    id_usuario_actor INTEGER REFERENCES usuarios(id_usuario),
+    fecha_hora TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_observaciones_pedido ON observaciones_pedidos(id_pedido, fecha_hora, id_observacion);
+
+-- Expediente técnico privado, visibilidad explícita y fecha real de entrega.
+CREATE TABLE IF NOT EXISTS detalle_servicio (
+    id_detalle SERIAL PRIMARY KEY,
+    id_pedido INTEGER UNIQUE NOT NULL REFERENCES pedidos(id_pedido),
+    diagnostico TEXT,
+    trabajo_realizado TEXT,
+    repuestos TEXT,
+    recomendaciones TEXT,
+    actualizado_por INTEGER REFERENCES usuarios(id_usuario),
+    fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE observaciones_pedidos ADD COLUMN IF NOT EXISTS visible_cliente BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS fecha_entrega TIMESTAMP;
+
+-- Solo transiciones de entrega reales; excluir estados iniciales y reparaciones de datos.
+UPDATE pedidos p SET fecha_entrega = h.entrega
+FROM (
+    SELECT id_pedido, MIN(fecha_hora) AS entrega FROM historial_estado_pedidos
+    WHERE estado_nuevo='Entregado' AND estado_anterior IS NOT NULL
+      AND estado_anterior NOT IN ('Entregado','Cancelado')
+      AND COALESCE(observacion,'') NOT LIKE 'Corrección de consistencia:%'
+    GROUP BY id_pedido
+) h WHERE p.id_pedido=h.id_pedido AND p.fecha_entrega IS NULL AND p.estado='Entregado';
+
+CREATE OR REPLACE FUNCTION fijar_fecha_entrega_pedido()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF NEW.estado='Entregado' AND OLD.estado IS DISTINCT FROM NEW.estado
+       AND NEW.fecha_entrega IS NULL
+       AND COALESCE(NEW.observacion,'') NOT LIKE 'Corrección de consistencia:%' THEN
+        NEW.fecha_entrega := CURRENT_TIMESTAMP;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS fecha_entrega_pedido ON pedidos;
+CREATE TRIGGER fecha_entrega_pedido BEFORE UPDATE OF estado ON pedidos
+FOR EACH ROW EXECUTE FUNCTION fijar_fecha_entrega_pedido();
+
+CREATE OR REPLACE FUNCTION auditar_detalle_servicio()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO auditoria (tabla,operacion,id_registro,datos_anteriores,datos_nuevos,usuario_bd)
+    VALUES ('detalle_servicio', TG_OP, NEW.id_detalle::text,
+            CASE WHEN TG_OP='UPDATE' THEN to_jsonb(OLD) ELSE NULL END,
+            to_jsonb(NEW), CURRENT_USER);
+    RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS auditoria_detalle_servicio ON detalle_servicio;
+CREATE TRIGGER auditoria_detalle_servicio AFTER INSERT OR UPDATE ON detalle_servicio
+FOR EACH ROW EXECUTE FUNCTION auditar_detalle_servicio();

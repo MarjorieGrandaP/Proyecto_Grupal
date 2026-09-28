@@ -1,76 +1,49 @@
 {% extends "base.html" %}
-
 {% block title %}PC-Fix - Panel de cliente{% endblock %}
-
 {% block content %}
-<section class="seccion-contenido my-4">
-    <div class="text-center mb-5">
+<section class="panel-cliente my-4" aria-labelledby="bienvenida-cliente">
+    <div class="cliente-hero d-flex flex-column flex-sm-row align-items-sm-center gap-4 mb-4">
         {% if current_user.imagen %}
         <img src="{{ url_for('static', filename='uploads/perfiles/' + current_user.imagen) }}"
-            alt="Avatar de {{ current_user.usuario }}" class="rounded-circle shadow-sm mb-3"
-            style="width: 96px; height: 96px; object-fit: cover;">
+            alt="Avatar de {{ current_user.usuario }}" class="cliente-avatar">
         {% else %}
-        <div class="rounded-circle bg-light border d-inline-flex align-items-center justify-content-center shadow-sm mb-3"
-            role="img" aria-label="Avatar predeterminado" style="width: 96px; height: 96px; font-size: 3rem;">&#128100;
+        <div class="cliente-avatar cliente-avatar-default" aria-hidden="true">
+            <i class="bi bi-person"></i>
         </div>
         {% endif %}
-        <h2 class="titulo-seccion">Panel de cliente</h2>
-        <p class="lead">Bienvenido, <strong>{{ current_user.usuario }}</strong></p>
-        <p class="text-muted">Gestiona tus solicitudes y consulta tus servicios desde un solo lugar.</p>
-        <span class="badge bg-secondary">Rol: cliente</span>
-    </div>
-
-    <div class="row g-4 justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Nueva solicitud</h5>
-                    <p class="card-text">Solicita diagnóstico o atención para tu equipo.</p>
-                    <a href="{{ url_for('nuevo_pedido') }}" class="btn btn-primary">Crear pedido</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Mis pedidos</h5>
-                    <p class="card-text">Consulta el estado y detalle de tus solicitudes.</p>
-                    <a href="{{ url_for('mis_pedidos') }}" class="btn btn-primary">Ver pedidos</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Mis facturas</h5>
-                    <p class="card-text">Consulta y descarga tus facturas emitidas.</p>
-                    <a href="{{ url_for('mis_facturas') }}" class="btn btn-primary">Ver facturas</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Servicios disponibles</h5>
-                    <p class="card-text">Revisa los servicios técnicos disponibles.</p>
-                    <a href="{{ url_for('servicios') }}" class="btn btn-primary">Ver servicios</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Mi perfil</h5>
-                    <p class="card-text">Actualiza tus datos personales y contraseña.</p>
-                    <a href="{{ url_for('perfil') }}" class="btn btn-primary">Abrir perfil</a>
-                </div>
-            </div>
+        <div class="flex-grow-1">
+            <span class="badge cliente-badge mb-2">Cliente</span>
+            <h2 id="bienvenida-cliente" class="mb-2">Bienvenido, {{ current_user.usuario }}</h2>
+            <p class="mb-0">Gestiona tus solicitudes, servicios y facturas desde un solo lugar.</p>
         </div>
     </div>
 
-    <div class="alert alert-light border mt-5 text-center">
-        Tienes <strong>{{ resumen.total or 0 }}</strong> pedidos registrados y
-        <strong>{{ resumen.pendientes or 0 }}</strong> en proceso.
+    <div class="row g-4">
+        {% for icono, titulo, descripcion, ruta, boton in [
+            ('plus-circle', 'Nueva solicitud', 'Solicita diagnóstico o atención para tu equipo.', 'nuevo_pedido', 'Crear pedido'),
+            ('clipboard-check', 'Mis pedidos', 'Consulta el estado y detalle de tus solicitudes.', 'mis_pedidos', 'Ver pedidos'),
+            ('receipt', 'Mis facturas', 'Consulta y descarga tus facturas emitidas.', 'mis_facturas', 'Ver facturas'),
+            ('tools', 'Servicios disponibles', 'Encuentra el servicio técnico que necesita tu equipo.', 'servicios', 'Ver servicios'),
+            ('person-circle', 'Mi perfil', 'Actualiza tus datos personales y contraseña.', 'perfil', 'Abrir perfil')
+        ] %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <article class="card cliente-card h-100">
+                <div class="card-body d-flex flex-column p-4">
+                    <div class="cliente-icono mb-4" aria-hidden="true"><i class="bi bi-{{ icono }}"></i></div>
+                    <h3 class="h5 card-title">{{ titulo }}</h3>
+                    <p class="card-text mb-4">{{ descripcion }}</p>
+                    <a href="{{ url_for(ruta) }}" class="btn btn-outline-primary mt-auto align-self-start">{{ boton }}
+                        <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </article>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="cliente-resumen d-flex flex-wrap gap-3 mt-4 p-3">
+        <span><i class="bi bi-clipboard me-2" aria-hidden="true"></i><strong>{{ resumen.total or 0 }}</strong> pedidos registrados</span>
+        <span><i class="bi bi-clock me-2" aria-hidden="true"></i><strong>{{ resumen.pendientes or 0 }}</strong> en proceso</span>
     </div>
 </section>
 {% endblock %}

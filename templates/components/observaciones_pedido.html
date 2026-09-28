@@ -1,0 +1,11 @@
+{% if observaciones %}
+<section class="border-top pt-3 mt-3" aria-label="Observaciones del pedido">
+    <h3 class="h5">Observaciones</h3>
+    {% for nota in observaciones %}
+    <article class="border-start border-primary ps-3 mb-3">
+        <p class="mb-1 text-break" style="white-space: pre-wrap">{{ nota.texto }}</p>
+        <div class="small text-muted">{{ nota.fecha_hora.strftime('%d/%m/%Y %H:%M:%S') }}{% if current_user.rol == 'admin' %} · {{ nota.actor or 'Usuario no registrado' }} · {{ 'Visible para el cliente' if nota.visible_cliente else 'Interna' }}{% endif %}</div>
+    </article>
+    {% endfor %}
+</section>
+{% endif %}

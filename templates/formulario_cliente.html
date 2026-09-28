@@ -14,9 +14,7 @@
 
                         <div class="mb-3">
                             {{ form.nombre.label(class="form-label fw-bold") }}
-                            {{ form.nombre(class="form-control", minlength="3", maxlength="100", required=true,
-                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
-                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
+                            {{ form.nombre(class="form-control") }}
                             {% for error in form.nombre.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
@@ -25,7 +23,8 @@
 
                         <div class="mb-3">
                             {{ form.cedula.label(class="form-label fw-bold") }}
-                            {{ form.cedula(class="form-control", maxlength="20") }}
+                            {{ form.cedula(class="form-control") }}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                             {% for error in form.cedula.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
@@ -48,17 +47,24 @@
                             {% for error in form.correo.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
+                            <div class="invalid-feedback" data-validation-feedback></div>
                         </div>
 
                         <div class="mb-3">
                             {{ form.equipo.label(class="form-label fw-bold") }}
-                            {{ form.equipo(class="form-control", minlength="3", maxlength="100", required=true,
-                            data_validation="required,minlength:3,maxlength:100", data_validation_message="Es
-                            obligatorio y debe tener entre 3 y 100 caracteres.") }}
+                            {{ form.equipo(class="form-control") }}
                             {% for error in form.equipo.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                             <div class="invalid-feedback" data-validation-feedback></div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.modelo.label(class="form-label fw-bold") }}
+                            {{ form.modelo(class="form-control", placeholder="Ej. IdeaPad 3 15ALC6") }}
+                            <div class="form-text">Puedes dejarlo vacío si no conoces el modelo.</div>
+                            <div class="invalid-feedback" data-validation-feedback></div>
+                            {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                         </div>
 
                         <div class="mb-3">

@@ -565,7 +565,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         function validarCampo(campo) {
             const reglas = campo.dataset.validation.split(",");
-            const valor = campo.value.trim();
+            const valor = campo.value;
             let esValido = true;
 
             if (reglas.includes("optional") && valor === "") {
@@ -604,6 +604,11 @@ document.addEventListener("DOMContentLoaded", function () {
                     esValido = false;
                 }
 
+                if (nombreRegla === "email" &&
+                    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor) || campo.validity.typeMismatch)) {
+                    esValido = false;
+                }
+
                 if (
                     nombreRegla === "duration" &&
                     !/^(Variable|[0-9]+([.,][0-9]+)? (minuto|minutos|hora|horas))$/i.test(valor)
@@ -618,6 +623,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     esValido = false;
                 }
             });
+
+            if (campo.pattern && valor !== "" && !new RegExp("^(?:" + campo.pattern + ")$").test(valor)) {
+                esValido = false;
+            }
 
             const mensaje = campo.parentElement.querySelector(
                 "[data-validation-feedback]"
@@ -640,6 +649,8 @@ document.addEventListener("DOMContentLoaded", function () {
             campo.addEventListener("input", function () {
                 validarCampo(campo);
             });
+
+            campo.addEventListener("blur", function () { validarCampo(campo); });
 
             campo.addEventListener("change", function () {
                 validarCampo(campo);

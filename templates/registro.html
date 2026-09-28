@@ -37,8 +37,7 @@
                         <!-- Datos personales del nuevo usuario -->
                         <div class="mb-3">
                             {{ form.nombres.label(class="form-label fw-bold") }}
-                            {{ form.nombres(class="form-control", placeholder="Ingrese sus nombres",
-                            data_validation="required,maxlength:100", data_validation_message="Ingresa tus nombres.") }}
+                            {{ form.nombres(class="form-control") }}
                             <div class="invalid-feedback" data-validation-feedback></div>
                             {% for error in form.nombres.errors %}<div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
@@ -46,9 +45,7 @@
 
                         <div class="mb-3">
                             {{ form.apellidos.label(class="form-label fw-bold") }}
-                            {{ form.apellidos(class="form-control", placeholder="Ingrese sus apellidos",
-                            data_validation="required,maxlength:100", data_validation_message="Ingresa tus apellidos.")
-                            }}
+                            {{ form.apellidos(class="form-control") }}
                             <div class="invalid-feedback" data-validation-feedback></div>
                             {% for error in form.apellidos.errors %}<div class="text-danger small mt-1">{{ error }}
                             </div>{% endfor %}
@@ -65,7 +62,7 @@
                             class="form-control",
                             placeholder="Cree un nombre de usuario",
                             data_validation="required,minlength:3,maxlength:50",
-                            data_validation_message="Ingresa un usuario de 3 a 50 caracteres."
+                            data_validation_message="El usuario debe contener únicamente letras y tener entre 3 y 50 caracteres."
                             ) }}
                             <div class="invalid-feedback" data-validation-feedback></div>
 
@@ -92,7 +89,7 @@
                         <div class="mb-3">
                             {{ form.telefono.label(class="form-label fw-bold") }}
                             {{ form.telefono(class="form-control", placeholder="Ingrese su teléfono",
-                            data_validation="required,maxlength:30", data_validation_message="Ingresa tu teléfono.") }}
+                            data_validation="required,maxlength:30", data_validation_message="Ingresa tu teléfono usando solo dígitos.") }}
                             <div class="invalid-feedback" data-validation-feedback></div>
                             {% for error in form.telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}

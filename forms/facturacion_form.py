@@ -1,5 +1,6 @@
+from decimal import Decimal
 from flask_wtf import FlaskForm
-from wtforms import FloatField, DateField, SelectField, SubmitField
+from wtforms import DecimalField, DateField, SelectField, SubmitField
 from wtforms.validators import DataRequired, InputRequired, NumberRange
 
 
@@ -24,11 +25,11 @@ class FacturacionForm(FlaskForm):
         ],
     )
 
-    total = FloatField(
+    total = DecimalField(
         "Total ($)",
         validators=[
             InputRequired(message="El total es obligatorio."),
-            NumberRange(min=0, message="El total debe ser mayor o igual a 0."),
+            NumberRange(min=0, max=Decimal('99999999.99'), message="El total debe estar entre 0 y 99999999.99."),
         ],
     )
 

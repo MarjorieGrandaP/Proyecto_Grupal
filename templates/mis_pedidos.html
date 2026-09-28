@@ -4,11 +4,22 @@
 
 {% block content %}
 <section class="seccion-contenido my-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2 class="titulo-seccion mb-0">Mis pedidos</h2>
         <a href="{{ url_for('nuevo_pedido') }}" class="btn btn-success">Nueva solicitud</a>
     </div>
 
+    {% for listo in pedidos_listos %}
+    <div class="alert alert-success d-flex flex-wrap align-items-center justify-content-between gap-2" role="status">
+        <span><strong>Pedido #{{ listo.id_pedido }}:</strong>
+            {{ 'Tu equipo está listo para ser retirado.' if listo.requiere_entrega_equipo else 'El servicio ha sido completado exitosamente.' }}
+        </span>
+        <a data-bs-toggle="modal" data-bs-target="#modalSeguimiento" data-seguimiento-url="{{ url_for('seguimiento_pedido', id=listo.id_pedido, modal=1) }}" href="{{ url_for('seguimiento_pedido', id=listo.id_pedido) }}" class="btn btn-sm btn-outline-success">Ver seguimiento</a>
+    </div>
+    {% endfor %}
+    {% with etiqueta_busqueda="Buscar pedido", ruta_busqueda="mis_pedidos" %}
+    {% include "components/buscador.html" %}
+    {% endwith %}
     <div class="table-responsive shadow-sm rounded border">
         <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -25,44 +36,63 @@
             </thead>
             <tbody>
                 {% for pedido in pedidos %}
-                {% set estado_clase = {
-                'Solicitado': 'bg-primary',
-                'En revisión': 'bg-warning text-dark',
-                'En reparación': 'bg-info text-dark',
-                'Listo': 'bg-success',
-                'Entregado': 'bg-secondary',
-                'Cancelado': 'bg-danger'
-                }.get(pedido.estado, 'bg-dark') %}
                 <tr>
                     <td class="fw-bold">#{{ pedido.id_pedido }}</td>
                     <td>{{ pedido.servicio_nombre or 'Servicio no disponible' }}</td>
-                    <td>{{ pedido.equipo }}</td>
-                    <td>{{ pedido.descripcion }}</td>
+                    <td>{{ pedido.equipo }}{% if pedido.modelo %}<div class="small text-muted">Modelo: {{ pedido.modelo }}</div>{% endif %}</td>
+                    <td><details><summary class="small">Ver descripción</summary>{{ pedido.descripcion }}</details></td>
                     <td>{{ pedido.fecha_solicitud.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td><span class="badge {{ estado_clase }}">{{ pedido.estado }}</span></td>
-                    <td>{% if pedido.solicita_factura %}<span class="badge bg-success">Solicitada</span>{% else %}<span
-                            class="badge bg-light text-dark border">No solicitada</span>{% endif %}</td>
                     <td>
-                        {% if pedido.id_factura %}
-                        <a href="{{ url_for('descargar_factura', id=pedido.id_factura) }}"
-                            class="btn btn-sm btn-outline-primary">Factura</a>
-                        {% elif not pedido.solicita_factura %}
-                        <form method="POST" action="{{ url_for('solicitar_factura', id=pedido.id_pedido) }}">
-                            {{ solicitar_factura_form.hidden_tag() }}
-                            <button type="submit" class="btn btn-sm btn-outline-success">Solicitar factura</button>
-                        </form>
+                        <span class="badge {{ colores_pedido.get(pedido.estado, 'bg-secondary') }}">{{ pedido.estado }}</span>
+
+                    </td>
+                    <td class="py-3">
+                        <div class="d-flex flex-column align-items-start gap-2">
+                            {% if pedido.id_factura %}
+                            <a href="{{ url_for('descargar_factura', id=pedido.id_factura) }}"
+                                class="btn btn-sm btn-outline-primary text-nowrap">Ver factura</a>
+                            {% elif pedido.solicita_factura %}
+                            <span class="badge bg-success">Solicitada</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">No solicitada</span>
+                            {% if pedido.estado != 'Cancelado' %}
+                            <form method="POST" action="{{ url_for('solicitar_factura', id=pedido.id_pedido) }}" class="m-0">
+                                {{ solicitar_factura_form.hidden_tag() }}
+                                <button type="submit" class="btn btn-sm btn-outline-success text-nowrap">Solicitar factura</button>
+                            </form>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="py-3">
+                        <a data-bs-toggle="modal" data-bs-target="#modalSeguimiento" data-seguimiento-url="{{ url_for('seguimiento_pedido', id=pedido.id_pedido, modal=1) }}" href="{{ url_for('seguimiento_pedido', id=pedido.id_pedido) }}" class="btn btn-sm btn-outline-secondary text-nowrap mb-2">Ver seguimiento</a>
+                        {% if pedido.estado == 'Solicitado' and not pedido.id_factura %}
+                        <div class="d-flex flex-column flex-lg-row gap-2 align-items-start">
+                            <a href="{{ url_for('editar_pedido', id=pedido.id_pedido) }}"
+                                class="btn btn-sm btn-outline-primary text-nowrap">Modificar</a>
+                            {% if pedido.dentro_plazo %}
+                            <button type="button" class="btn btn-sm btn-outline-danger text-nowrap" data-bs-toggle="modal"
+                                data-bs-target="#cancelarPedido" data-action="{{ url_for('cancelar_pedido', id=pedido.id_pedido) }}">Cancelar</button>
+                            {% endif %}
+                        </div>
+                        {% elif pedido.estado != 'Cancelado' %}
+                        <span class="small text-muted text-nowrap">Pedido en proceso</span>
                         {% else %}
-                        <span class="text-muted small">Pendiente de emisión</span>
+                        <span class="small text-muted">Cancelado</span>
                         {% endif %}
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">Aún no tienes pedidos registrados.</td>
+                    <td colspan="8" class="text-center text-muted py-4">{{ 'No se encontraron resultados para esta búsqueda.' if q else 'Aún no tienes pedidos registrados.' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+{% include "components/modales_pedidos.html" %}
 {% endblock %}

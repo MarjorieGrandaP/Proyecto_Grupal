@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}PC-Fix - Nueva solicitud{% endblock %}
+{% block title %}PC-Fix - {{ 'Modificar pedido' if editando else 'Nueva solicitud' }}{% endblock %}
 
 {% block content %}
 <section class="seccion-contenido my-4">
-    <h2 class="titulo-seccion text-center">Nueva solicitud</h2>
+    <h2 class="titulo-seccion text-center">{{ 'Modificar pedido' if editando else 'Nueva solicitud' }}</h2>
     <p class="text-muted text-center">Describe el equipo y el problema para solicitar atención técnica.</p>
 
     <form method="POST" id="formulario-pedido" class="formulario-validacion" novalidate>
@@ -18,10 +18,16 @@
         </div>
         <div class="mb-3">
             {{ form.equipo.label(class="form-label fw-bold") }}
-            {{ form.equipo(class="form-control", placeholder="Ej. Laptop HP Pavilion",
-            data_validation="required,maxlength:100", data_validation_message="Indica el equipo.") }}
+            {{ form.equipo(class="form-control") }}
             <div class="invalid-feedback" data-validation-feedback></div>
             {% for error in form.equipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="mb-3">
+            {{ form.modelo.label(class="form-label fw-bold") }}
+            {{ form.modelo(class="form-control", placeholder="Ej. IdeaPad 3 15ALC6") }}
+            <div class="form-text">Puedes dejarlo vacío si no conoces el modelo.</div>
+            <div class="invalid-feedback" data-validation-feedback></div>
+            {% for error in form.modelo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
         </div>
         <div class="mb-3">
             {{ form.descripcion.label(class="form-label fw-bold") }}
@@ -30,10 +36,20 @@
             <div class="invalid-feedback" data-validation-feedback></div>
             {% for error in form.descripcion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
         </div>
+        {% if not editando %}
+        <div class="form-check mb-4">
+            {{ form.acepta_terminos(class="form-check-input") }}
+            <label for="{{ form.acepta_terminos.id }}" class="form-check-label">Acepto los
+                <a href="{{ url_for('terminos') }}" target="_blank" rel="noopener">términos y condiciones</a>
+                y la <a href="{{ url_for('garantia') }}" target="_blank" rel="noopener">garantía</a>.
+            </label>
+            {% for error in form.acepta_terminos.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
         <div class="form-check mb-4">
             {{ form.solicita_factura(class="form-check-input") }}
             {{ form.solicita_factura.label(class="form-check-label") }}
         </div>
+        {% endif %}
         <div class="d-flex gap-2">
             {{ form.submit(class="btn btn-primary", id="btn-enviar-pedido") }}
             <a href="{{ url_for('mis_pedidos') }}" class="btn btn-outline-secondary">Cancelar</a>

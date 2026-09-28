@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}PC-Fix - Corregir equipo{% endblock %}
+{% block content %}
+<section class="seccion-contenido my-4">
+    <h2 class="titulo-seccion">Corregir equipo del pedido #{{ pedido.id_pedido }}</h2>
+    <p class="text-muted">Las facturas emitidas conservan los datos registrados al emitirlas.</p>
+    <form method="POST" class="formulario-validacion" novalidate>
+        {{ form.hidden_tag() }}
+        {% for campo in (form.equipo, form.modelo, form.descripcion) %}
+        <div class="mb-3">
+            {{ campo.label(class="form-label fw-bold") }}
+            {{ campo(class="form-control") }}
+            <div class="invalid-feedback" data-validation-feedback></div>
+            {% for error in campo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+        <div class="d-flex flex-wrap gap-2">
+            {{ form.submit(class="btn btn-primary") }}
+            <a href="{{ url_for('pedidos_admin') }}" class="btn btn-outline-secondary">Volver</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

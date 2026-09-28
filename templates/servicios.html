@@ -4,18 +4,37 @@
 
 {% block content %}
 
-<section id="servicios" class="seccion-contenido">
-    <h2 class="titulo-seccion text-center">Nuestros Servicios</h2>
+<section id="servicios" class="seccion-contenido admin-listado">
     {% if current_user.rol == "admin" %}
-    <div class="text-center mb-4">
-        <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-success">
-            <i class="bi bi-plus-circle"></i> Registrar Nuevo Servicio
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="titulo-seccion mb-2">Administración de servicios</h2>
+            <p class="text-muted mb-0">Organiza el catálogo, gestiona su disponibilidad y conserva su historial.</p>
+        </div>
+        <a href="{{ url_for('nuevo_servicio') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>Nuevo servicio
         </a>
     </div>
+    {% else %}
+    <h2 class="titulo-seccion text-center">Nuestros servicios</h2>
+    <p class="text-muted mb-4">Encuentra el servicio técnico que necesita tu equipo.</p>
     {% endif %}
-    <p class="texto-destacado text-center mb-4">Ofrecemos una amplia gama de soluciones técnicas con los más altos
-        estándares de calidad para mantener tus equipos en perfectas condiciones.</p>
 
+    {% if current_user.rol == 'admin' %}
+    {% from "components/filtros_admin.html" import barra %}
+    {% set opciones_proveedores = [('', 'Todos')] %}
+    {% for p in proveedores_filtro %}{% set _ = opciones_proveedores.append((p.id_proveedor|string, p.empresa)) %}{% endfor %}
+    {{ barra('servicios', q, 'Buscar servicio', [
+        ('estado', 'Estado', estado, [('todos', 'Todos (sin archivados)'), ('activos', 'Activos'), ('pausados', 'En pausa'), ('archivados', 'Archivados')]),
+        ('proveedor', 'Proveedor', proveedor|string if proveedor else '', opciones_proveedores),
+        ('orden', 'Ordenar por', orden, [('nombre', 'Nombre A-Z'), ('menor_precio', 'Precio menor a mayor'), ('mayor_precio', 'Precio mayor a menor'), ('recientes', 'Más recientes')])
+    ]) }}
+    <a href="{{ url_for('servicios', estado='archivados') }}" class="btn btn-sm btn-outline-secondary mb-3"><i class="bi bi-archive me-2" aria-hidden="true"></i>Ver archivados</a>
+    {% else %}
+    {% with etiqueta_busqueda="Buscar servicio", ruta_busqueda="servicios" %}
+    {% include "components/buscador.html" %}
+    {% endwith %}
+    {% endif %}
     <div class="table-responsive shadow-sm rounded border">
         <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -43,7 +62,7 @@
                             alt="{{ servicio.nombre }}" style="width: 50px; height: 50px; object-fit: cover;"
                             class="rounded border">
                     </td>
-                    <td class="fw-bold">{{ servicio.nombre }}</td>
+                    <td class="fw-bold">{{ servicio.nombre }} <span class="badge {{ 'bg-dark' if servicio.archivado else 'bg-success' if servicio.activo else 'bg-secondary' }}">{{ 'Archivado' if servicio.archivado else 'Activo' if servicio.activo else 'En pausa' }}</span></td>
                     <td>
                         <span class="badge bg-secondary">{{ servicio.proveedor_empresa or 'Sin proveedor' }}</span>
                     </td>
@@ -57,25 +76,28 @@
                     {% endif %}
                     {% if current_user.rol == "admin" %}
                     <td class="text-center">
-                        <div class="btn-group" role="group">
-                            <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}"
-                                class="btn btn-sm btn-outline-primary" title="Modificar">
-                                Modificar
-                            </a>
-                            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar"
-                                data-bs-toggle="modal" data-bs-target="#modalEliminar"
-                                data-id="{{ servicio.id_servicio }}" data-nombre="{{ servicio.nombre }}"
-                                title="Eliminar">
-                                Eliminar
-                            </button>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if servicio.archivado %}
+                            <form method="POST" action="{{ url_for('restaurar_servicio', id=servicio.id_servicio) }}">
+                                {{ eliminar_form.hidden_tag() }}
+                                <button class="btn btn-sm btn-outline-primary" type="submit">Restaurar</button>
+                            </form>
+                            {% else %}
+                            <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                            <form method="POST" action="{{ url_for('eliminar_servicio' if servicio.activo else 'activar_servicio', id=servicio.id_servicio) }}">
+                                {{ eliminar_form.hidden_tag() }}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Pausar' if servicio.activo else 'Reactivar' }}</button>
+                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                                data-bs-target="#archivarServicio" data-action="{{ url_for('archivar_servicio', id=servicio.id_servicio) }}">Archivar</button>
+                            {% endif %}
                         </div>
                     </td>
                     {% endif %}
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="{{ 7 if current_user.rol == 'admin' else 7 }}" class="text-center text-muted py-4">No
-                        hay servicios registrados en la base de datos.</td>
+                    <td colspan="{{ 7 if current_user.rol == 'admin' else 7 }}" class="text-center text-muted py-4">{{ 'No se encontraron resultados para esta búsqueda.' if q else 'No hay servicios disponibles.' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -83,56 +105,30 @@
     </div>
 </section>
 
-<!-- Modal de Confirmación Visual para Eliminar -->
-<div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="modalEliminarLabel">Confirmar Eliminación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>¿Estás seguro de que deseas eliminar permanentemente el servicio <strong
-                        id="nombreServicioEliminar"></strong>?</p>
-                <div class="alert alert-warning py-2 mb-0 small">
-                    Esta acción eliminará el registro directamente de la base de datos PostgreSQL y no se podrá
-                    recuperar.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form id="formEliminar" method="POST" action="">
-                    <button type="submit" class="btn btn-danger">Eliminar Definitivamente</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 
 {% endblock %}
 
+
 {% block scripts %}
+{% if current_user.rol == 'admin' %}
+<div class="modal fade" id="archivarServicio" tabindex="-1" aria-labelledby="tituloArchivar" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloArchivar">Archivar servicio</h5>
+            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">El servicio se ocultará de la plataforma, pero permanecerá en el historial.</div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+            <form method="POST" id="formArchivarServicio">
+                {{ eliminar_form.hidden_tag() }}
+                <button type="submit" class="btn btn-danger">Confirmar archivo</button>
+            </form>
+        </div>
+    </div></div>
+</div>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var modalEliminar = document.getElementById('modalEliminar');
-        if (modalEliminar) {
-            modalEliminar.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
-                var servicioId = button.getAttribute('data-id');
-                var servicioNombre = button.getAttribute('data-nombre');
-
-                var nombreSpan = modalEliminar.querySelector('#nombreServicioEliminar');
-                var formEliminar = modalEliminar.querySelector('#formEliminar');
-
-                if (nombreSpan) {
-                    nombreSpan.textContent = servicioNombre;
-                }
-                if (formEliminar) {
-                    formEliminar.action = '/servicios/eliminar/' + servicioId;
-                }
-            });
-        }
-    });
+document.getElementById('archivarServicio').addEventListener('show.bs.modal', function (event) {
+    document.getElementById('formArchivarServicio').action = event.relatedTarget.dataset.action;
+});
 </script>
+{% endif %}
 {% endblock %}

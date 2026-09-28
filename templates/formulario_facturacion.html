@@ -1,77 +1,9 @@
 {% extends "base.html" %}
-
-{% block title %}PC-Fix - {{ titulo }}{% endblock %}
-
+{% block title %}PC-Fix - Emisión de facturas{% endblock %}
 {% block content %}
-<section class="seccion-contenido my-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <h2 class="titulo-seccion text-center mb-4">{{ titulo }}</h2>
-            <div class="card shadow-sm">
-                <div class="card-body p-4">
-                    <form method="POST" action="" class="formulario-validacion" novalidate>
-                        {{ form.hidden_tag() }}
-
-                        <div class="mb-3">
-                            {{ form.id_cliente.label(class="form-label fw-bold") }}
-                            {{ form.id_cliente(class="form-select", required=true,
-                            data_validation="required", data_validation_message="Selecciona un cliente.") }}
-                            {% for error in form.id_cliente.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.id_servicio.label(class="form-label fw-bold") }}
-                            {{ form.id_servicio(class="form-select", required=true,
-                            data_validation="required", data_validation_message="Selecciona un servicio.") }}
-                            {% for error in form.id_servicio.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.fecha.label(class="form-label fw-bold") }}
-                            {{ form.fecha(class="form-control", type="date", required=true,
-                            data_validation="required,date", data_validation_message="Es obligatoria y debe tener una
-                            fecha válida.") }}
-                            {% for error in form.fecha.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.total.label(class="form-label fw-bold") }}
-                            {{ form.total(class="form-control", type="number", min="0", step="0.01", required=true,
-                            data_validation="required,min:0", data_validation_message="Es obligatorio y debe ser mayor o
-                            igual que 0.") }}
-                            {% for error in form.total.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="mb-3">
-                            {{ form.estado.label(class="form-label fw-bold") }}
-                            {{ form.estado(class="form-select", required=true, data_validation="required",
-                            data_validation_message="Debes seleccionar un estado.") }}
-                            {% for error in form.estado.errors %}
-                            <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                            <div class="invalid-feedback" data-validation-feedback></div>
-                        </div>
-
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                            <a href="{{ url_for('facturacion') }}" class="btn btn-secondary me-md-2">Cancelar</a>
-                            {{ form.submit(class="btn btn-primary") }}
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+<section class="seccion-contenido">
+    <h2>Emisión de facturas</h2>
+    <p>Las facturas se emiten desde pedidos entregados.</p>
+    <a href="{{ url_for('pedidos_admin') }}" class="btn btn-primary">Administrar pedidos</a>
 </section>
 {% endblock %}

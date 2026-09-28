@@ -28,16 +28,14 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         {{ form.nombres.label(class="form-label fw-bold") }}
-                        {{ form.nombres(class="form-control", data_validation="required,maxlength:100",
-                        data_validation_message="Ingresa tus nombres.") }}
+                        {{ form.nombres(class="form-control") }}
                         <div class="invalid-feedback" data-validation-feedback></div>
                         {% for error in form.nombres.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
                         endfor %}
                     </div>
                     <div class="col-md-6 mb-3">
                         {{ form.apellidos.label(class="form-label fw-bold") }}
-                        {{ form.apellidos(class="form-control", data_validation="required,maxlength:100",
-                        data_validation_message="Ingresa tus apellidos.") }}
+                        {{ form.apellidos(class="form-control") }}
                         <div class="invalid-feedback" data-validation-feedback></div>
                         {% for error in form.apellidos.errors %}<div class="text-danger small mt-1">{{ error }}</div>{%
                         endfor %}

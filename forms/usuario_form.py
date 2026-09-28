@@ -1,3 +1,5 @@
+from .nombre_personal import campo_nombre_personal
+from wtforms.validators import Regexp
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 import re
@@ -22,31 +24,21 @@ class UsuarioForm(FlaskForm):
     evitando guardarla en texto plano.
     """
 
-    nombres = StringField(
-        "Nombres",
-        validators=[
-            DataRequired(message="Los nombres son obligatorios."),
-            Length(max=100, message="Los nombres no pueden superar 100 caracteres."),
-        ],
-    )
+    nombres = campo_nombre_personal("Nombres")
 
-    apellidos = StringField(
-        "Apellidos",
-        validators=[
-            DataRequired(message="Los apellidos son obligatorios."),
-            Length(max=100, message="Los apellidos no pueden superar 100 caracteres."),
-        ],
-    )
+    apellidos = campo_nombre_personal("Apellidos")
 
     # Nombre que identificará al usuario dentro del sistema.
     # La base de datos también tendrá una restricción UNIQUE
     # para impedir que dos usuarios tengan el mismo nombre.
     usuario = StringField(
         "Usuario",
+        render_kw={"pattern": "[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,50}", "title": "El usuario debe contener únicamente letras y tener entre 3 y 50 caracteres."},
         validators=[
-            DataRequired(message="El nombre de usuario es obligatorio."),
+            Regexp(r"\A[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{3,50}\Z", message="El usuario debe contener únicamente letras y tener entre 3 y 50 caracteres."),
+            DataRequired(message="El usuario debe contener únicamente letras y tener entre 3 y 50 caracteres."),
             Length(
-                min=3, max=50, message="El usuario debe tener entre 3 y 50 caracteres."
+                min=3, max=50, message="El usuario debe contener únicamente letras y tener entre 3 y 50 caracteres."
             ),
         ],
     )
@@ -62,8 +54,10 @@ class UsuarioForm(FlaskForm):
 
     telefono = StringField(
         "Teléfono",
+        render_kw={"inputmode": "numeric", "pattern": "[0-9]+"},
         validators=[
             DataRequired(message="El teléfono es obligatorio."),
+            Regexp(r"\A[0-9]+\Z", message="El teléfono debe contener solo dígitos."),
             Length(max=30, message="El teléfono no puede superar 30 caracteres."),
         ],
     )
