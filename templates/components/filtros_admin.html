@@ -1,11 +1,11 @@
-{% macro barra(ruta, q, etiqueta, filtros, fecha=none) %}
+{% macro barra(ruta, q, etiqueta, filtros, fecha=none, desde=none, hasta=none) %}
 <form method="GET" action="{{ url_for(ruta) }}" class="admin-filtros row g-3 align-items-end mb-4">
-    <div class="col-12 col-lg">
+    <div class="col-12 {{ 'col-lg-6' if desde is not none else 'col-lg' }}">
         <label for="busqueda-admin" class="form-label">{{ etiqueta }}</label>
         <input id="busqueda-admin" type="search" name="q" value="{{ q }}" class="form-control" placeholder="{{ etiqueta }}...">
     </div>
     {% for nombre, titulo, seleccionado, opciones in filtros %}
-    <div class="col-12 col-sm-6 col-lg">
+    <div class="col-12 col-sm-6 {{ 'col-lg-3' if desde is not none else 'col-lg' }}">
         <label for="filtro-{{ nombre }}" class="form-label">{{ titulo }}</label>
         <select id="filtro-{{ nombre }}" name="{{ nombre }}" class="form-select">
             {% for valor, texto in opciones %}
@@ -15,11 +15,19 @@
     </div>
     {% endfor %}
     {% if fecha is not none %}
-    <div class="col-12 col-sm-6 col-lg">
+    <div class="col-12 col-sm-6 {{ 'col-lg-3' if desde is not none else 'col-lg' }}">
         <label for="filtro-fecha" class="form-label">Fecha de solicitud</label>
         <input type="date" id="filtro-fecha" name="fecha" value="{{ fecha }}" class="form-control">
     </div>
     {% endif %}
+    {% for nombre, titulo, valor in [('desde', 'Fecha desde', desde), ('hasta', 'Fecha hasta', hasta)] %}
+    {% if valor is not none %}
+    <div class="col-12 col-sm-6 col-lg-3">
+        <label for="filtro-{{ nombre }}" class="form-label">{{ titulo }}</label>
+        <input type="date" id="filtro-{{ nombre }}" name="{{ nombre }}" value="{{ valor }}" class="form-control">
+    </div>
+    {% endif %}
+    {% endfor %}
     <div class="col-12 d-flex flex-wrap gap-2">
         <button type="submit" class="btn btn-primary"><i class="bi bi-search me-2" aria-hidden="true"></i>Buscar</button>
         <a href="{{ url_for(ruta) }}" class="btn btn-outline-secondary">Limpiar</a>

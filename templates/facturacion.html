@@ -4,8 +4,8 @@
 
 {% block content %}
 
-<section id="facturacion" class="seccion-contenido">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<section id="facturacion" class="seccion-contenido admin-listado">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2 class="titulo-seccion mb-0">Módulo de Facturación</h2>
         <div>
             <a href="{{ url_for('pedidos_admin') }}" class="btn btn-success me-2">Administrar pedidos</a>
@@ -14,6 +14,13 @@
     </div>
     <p class="text-muted mb-4">Órdenes de servicio facturadas. Los montos son referenciales y se muestran a modo de ejemplo.</p>
 
+    {% from "components/filtros_admin.html" import barra %}
+    {{ barra('facturacion', q, 'Buscar factura', [
+        ('estado', 'Estado de pago', estado, [('', 'Todos')] + estados),
+        ('fecha', 'Fecha', fecha, [('', 'Todas'), ('recientes', 'Más recientes'), ('antiguos', 'Más antiguas')]),
+        ('orden', 'Ordenar por', orden, [('recientes', 'Más recientes'), ('antiguos', 'Más antiguas'), ('mayor_total', 'Total mayor a menor'), ('menor_total', 'Total menor a mayor')])
+    ], desde=desde, hasta=hasta) }}
+    <p class="small text-muted">Fecha prioriza el orden cronológico; Ordenar por ordena dentro de cada fecha. Selecciona Todas para ordenar principalmente por total.</p>
     <div class="table-responsive shadow-sm rounded border">
         <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -42,6 +49,8 @@
                         {% endif %}
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No se encontraron resultados para estos filtros.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

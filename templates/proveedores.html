@@ -4,8 +4,8 @@
 
 {% block content %}
 
-<section id="proveedores" class="seccion-contenido">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<section id="proveedores" class="seccion-contenido admin-listado">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2 class="titulo-seccion mb-0">Módulo de Proveedores</h2>
         <div>
             <a href="{{ url_for('nuevo_proveedor') }}" class="btn btn-success me-2">Registrar Proveedor</a>
@@ -15,6 +15,14 @@
     <p class="text-muted mb-4">Proveedores de repuestos y componentes con los que trabajamos para garantizar repuestos
         originales.</p>
 
+    {% from "components/filtros_admin.html" import barra %}
+    {% set opciones_categoria = [('', 'Todas')] %}
+    {% for categoria in categorias %}{% set _ = opciones_categoria.append((categoria, categoria)) %}{% endfor %}
+    {{ barra('proveedores', q, 'Buscar proveedor', [
+        ('estado', 'Estado', estado, [('', 'Todos'), ('activos', 'Activos'), ('inactivos', 'Inactivos')]),
+        ('categoria', 'Categoría', categoria, opciones_categoria),
+        ('orden', 'Ordenar por', orden, [('empresa', 'Empresa A-Z'), ('empresa_desc', 'Empresa Z-A'), ('recientes', 'Más recientes'), ('antiguos', 'Más antiguos')])
+    ]) }}
     <div class="table-responsive shadow-sm rounded border">
         <table class="table table-striped table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -45,6 +53,8 @@
                         </form>
                     </td>
                 </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No se encontraron resultados para estos filtros.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

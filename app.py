@@ -2388,18 +2388,43 @@ def activar_cliente(id):
 @app.route("/proveedores")
 @admin_required
 def proveedores():
+    q = request.args.get("q", "").strip()
+    estado = request.args.get("estado", "")
+    if estado not in ("activos", "inactivos"):
+        estado = ""
+    activo = {"activos": True, "inactivos": False}.get(estado)
+    categoria = request.args.get("categoria", "").strip()
+    ordenes = {
+        "empresa": "empresa ASC, id_proveedor ASC",
+        "empresa_desc": "empresa DESC, id_proveedor DESC",
+        "recientes": "id_proveedor DESC",
+        "antiguos": "id_proveedor ASC",
+    }
+    orden = request.args.get("orden", "empresa")
+    if orden not in ordenes:
+        orden = "empresa"
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
-        "SELECT id_proveedor, empresa, contacto, telefono, categoria, activo FROM proveedores ORDER BY id_proveedor"
-    )
-    proveedores = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT DISTINCT categoria FROM proveedores WHERE categoria <> '' ORDER BY categoria")
+            categorias = [fila["categoria"] for fila in cursor.fetchall()]
+            if categoria not in categorias:
+                categoria = ""
+            cursor.execute(
+                """SELECT id_proveedor, empresa, contacto, telefono, categoria, activo
+                   FROM proveedores
+                   WHERE (empresa ILIKE %s OR contacto ILIKE %s OR telefono ILIKE %s OR categoria ILIKE %s)
+                     AND (%s IS NULL OR activo = %s)
+                     AND (%s = '' OR categoria = %s)
+                   ORDER BY """ + ordenes[orden],
+                (f"%{q}%",) * 4 + (activo, activo, categoria, categoria),
+            )
+            proveedores_db = cursor.fetchall()
+    finally:
+        conn.close()
     return render_template(
-        "proveedores.html",
-        active="proveedores",
-        proveedores=proveedores,
+        "proveedores.html", active="proveedores", proveedores=proveedores_db,
+        q=q, estado=estado, categoria=categoria, categorias=categorias, orden=orden,
         eliminar_form=EliminarForm(),
     )
 
@@ -2497,22 +2522,67 @@ def activar_proveedor(id):
 @app.route("/facturacion")
 @admin_required
 def facturacion():
+    q = request.args.get("q", "").strip()
+    estado = request.args.get("estado", "")
+    ordenes = {
+        "recientes": "fecha DESC, id_factura DESC",
+        "antiguos": "fecha ASC, id_factura ASC",
+        "mayor_total": "total DESC, fecha DESC, id_factura DESC",
+        "menor_total": "total ASC, fecha DESC, id_factura DESC",
+    }
+    orden = request.args.get("orden", "recientes")
+    if orden not in ordenes:
+        orden = "recientes"
+    fecha = request.args.get("fecha", "")
+    if fecha not in ("recientes", "antiguos"):
+        fecha = ""
+    # Fecha establece la prioridad cronológica; Ordenar por desempata.
+    orden_fecha = {"": "", "recientes": "fecha DESC, ", "antiguos": "fecha ASC, "}
+    orden_sql = orden_fecha[fecha] + ordenes[orden]
+    fechas = {}
+    for campo in ("desde", "hasta"):
+        try:
+            fechas[campo] = datetime.strptime(request.args.get(campo, ""), "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            fechas[campo] = ""
     conn = obtener_conexion()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("""SELECT f.numero,
-                  COALESCE(c.nombre, NULLIF(CONCAT_WS(' ', pu.nombres, pu.apellidos), ''), u.usuario, u.correo, 'Sin cliente') AS cliente,
-                  COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio, f.fecha, f.total, f.estado,
-                  f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
-           FROM facturas f
-           LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
-           LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
-           LEFT JOIN usuarios u ON u.id_usuario = f.id_usuario
-           LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
-           ORDER BY f.fecha DESC, f.id_factura DESC""")
-    facturas = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return render_template("facturacion.html", active="facturacion", facturas=facturas)
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute("SELECT EXISTS(SELECT 1 FROM facturas WHERE estado = %s) AS pendiente", ("Pendiente",))
+            estados = [("Pagada", "Pagado"), ("Pago parcial", "Pago parcial")]
+            if cursor.fetchone()["pendiente"]:
+                estados.append(("Pendiente", "Pendiente"))
+            if estado not in dict(estados):
+                estado = ""
+            cursor.execute(
+                """SELECT * FROM (
+                    SELECT f.id_factura, f.numero, f.id_pedido,
+                           COALESCE(c.nombre, NULLIF(CONCAT_WS(' ', pu.nombres, pu.apellidos), ''), u.usuario, u.correo, 'Sin cliente') AS cliente,
+                           COALESCE(c.correo, u.correo, '') AS correo,
+                           COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio,
+                           f.fecha, f.total, f.estado, f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
+                    FROM facturas f
+                    LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
+                    LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
+                    LEFT JOIN usuarios u ON u.id_usuario = f.id_usuario
+                    LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
+                ) AS listado
+                WHERE (numero ILIKE %s OR cliente ILIKE %s OR correo ILIKE %s
+                       OR servicio ILIKE %s OR id_pedido::text ILIKE %s)
+                  AND (%s = '' OR estado = %s)
+                  AND (%s::date IS NULL OR fecha >= %s::date)
+                  AND (%s::date IS NULL OR fecha <= %s::date)
+                ORDER BY """ + orden_sql,
+                (f"%{q}%",) * 5 + (estado, estado)
+                + (fechas["desde"] or None,) * 2 + (fechas["hasta"] or None,) * 2,
+            )
+            facturas_db = cursor.fetchall()
+    finally:
+        conn.close()
+    return render_template(
+        "facturacion.html", active="facturacion", facturas=facturas_db,
+        q=q, estado=estado, estados=estados, fecha=fecha, orden=orden, **fechas,
+    )
 
 
 @app.route("/facturacion/nuevo", methods=["GET", "POST"])
