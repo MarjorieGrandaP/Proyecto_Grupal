@@ -57,10 +57,14 @@
                     <td><div class="d-flex flex-wrap gap-2">
                         <a href="{{ url_for('editar_cliente', id=cliente.id_cliente) }}"
                             class="btn btn-sm btn-outline-primary">Editar</a>
-                        <form method="POST" action="{{ url_for('eliminar_cliente' if cliente.activo else 'activar_cliente', id=cliente.id_cliente) }}"
+                        <form method="POST" action="{{ url_for('desactivar_cliente' if cliente.activo else 'activar_cliente', id=cliente.id_cliente) }}"
                             class="d-inline">
                             {{ eliminar_form.hidden_tag() }}
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Desactivar' if cliente.activo else 'Activar' }}</button>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Archivar' if cliente.activo else 'Restaurar' }}</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('eliminar_cliente', id=cliente.id_cliente) }}" onsubmit="return confirm('El registro dejará de estar disponible para nuevas operaciones, pero se conservará en el historial.');">
+                            {{ eliminar_form.hidden_tag() }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
                         </form>
                     </div></td>
                 </tr>

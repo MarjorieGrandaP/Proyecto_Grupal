@@ -84,13 +84,17 @@
                             </form>
                             {% else %}
                             <a href="{{ url_for('editar_servicio', id=servicio.id_servicio) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-                            <form method="POST" action="{{ url_for('eliminar_servicio' if servicio.activo else 'activar_servicio', id=servicio.id_servicio) }}">
+                            <form method="POST" action="{{ url_for('desactivar_servicio' if servicio.activo else 'activar_servicio', id=servicio.id_servicio) }}">
                                 {{ eliminar_form.hidden_tag() }}
                                 <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'Pausar' if servicio.activo else 'Reactivar' }}</button>
                             </form>
                             <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
                                 data-bs-target="#archivarServicio" data-action="{{ url_for('archivar_servicio', id=servicio.id_servicio) }}">Archivar</button>
                             {% endif %}
+                        <form method="POST" action="{{ url_for('eliminar_servicio', id=servicio.id_servicio) }}" onsubmit="return confirm('El registro dejará de estar disponible para nuevas operaciones, pero se conservará en el historial.');">
+                            {{ eliminar_form.hidden_tag() }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                        </form>
                         </div>
                     </td>
                     {% endif %}

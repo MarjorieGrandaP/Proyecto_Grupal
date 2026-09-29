@@ -1,5 +1,7 @@
 <div class="mb-4">
     <h3 class="h5">Pedido #{{ pedido.id_pedido }} · {{ pedido.equipo }}</h3>
+    <p>{{ pedido.servicio_nombre or 'Servicio no registrado' }}</p>
+    {% if pedido.servicio_descripcion %}<p class="text-muted">{{ pedido.servicio_descripcion }}</p>{% endif %}
     {% if pedido.modelo %}<p class="text-muted">Modelo: {{ pedido.modelo }}</p>{% endif %}
     <span class="badge {{ colores_pedido.get(pedido.estado, 'bg-secondary') }}">{{ pedido.estado }}</span>
     <p class="mt-2 mb-0">{{ mensaje_estado_pedido(pedido.estado, pedido.requiere_entrega_equipo) }}</p>

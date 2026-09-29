@@ -38,7 +38,7 @@
                 <tr>
                     <td class="fw-bold">{{ factura.numero }}</td>
                     <td>{{ factura.cliente }}</td>
-                    <td>{{ factura.servicio }}{% if factura.equipo %}<div class="small text-muted">Equipo: {{ factura.equipo }}</div>{% endif %}{% if factura.modelo %}<div class="small text-muted">Modelo: {{ factura.modelo }}</div>{% endif %}</td>
+                    <td>{{ factura.servicio }}{% if factura.servicio_descripcion %}<div class="small text-muted">{{ factura.servicio_descripcion }}</div>{% endif %}{% if factura.equipo %}<div class="small text-muted">Equipo: {{ factura.equipo }}</div>{% endif %}{% if factura.modelo %}<div class="small text-muted">Modelo: {{ factura.modelo }}</div>{% endif %}</td>
                     <td>{{ factura.fecha }}</td>
                     <td>${{ "%.2f"|format(factura.total) }}</td>
                     <td>

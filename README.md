@@ -190,3 +190,23 @@ usando su importe anterior como base, fija IVA al 15 %, marca la factura pagada 
 registra la conciliación histórica sin archivo de comprobante. Es idempotente.
 Los comprobantes nuevos quedan en PostgreSQL, se conservan tras un rechazo y no se
 incluyen en la factura ni se exponen a otros clientes.
+# Eliminación lógica e historial
+
+Servicios y Clientes conservan sus filas al pulsar **Eliminar**: quedan excluidos
+del uso futuro y no se pueden reactivar. **Archivar** permite restaurar; en Clientes
+se reutiliza el estado inactivo. Los pedidos del portal pertenecen a `usuarios`,
+una entidad independiente de los registros administrativos de `clientes`.
+
+Para una base existente, aplicar `sql/migracion_eliminacion_logica.sql` dentro de
+una transacción antes de servir la aplicación actualizada. El mismo SQL está
+incluido en `sql/esquema.sql`, que se ejecuta durante la inicialización habitual.
+La migración es repetible, conserva las filas y sustituye las reglas destructivas
+de las relaciones históricas por `RESTRICT`.
+
+Las facturas nuevas guardan nombre, descripción y precio al emitirse. Para las
+antiguas, solo se completan snapshots ausentes: descripción disponible actualmente
+y precio procedente de la propia factura. No se pueden reconstruir descripciones
+anteriores que nunca se guardaron.
+
+Pruebas específicas (incluyen migración y rollback):
+`python -m unittest discover -s tests -p test_eliminacion_logica.py -v`.

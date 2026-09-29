@@ -345,7 +345,7 @@ def cargar_opciones_servicios():
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
-        "SELECT id_servicio, nombre FROM servicios WHERE activo = TRUE AND archivado = FALSE ORDER BY nombre ASC"
+        "SELECT id_servicio, nombre FROM servicios WHERE activo = TRUE AND archivado = FALSE AND eliminado = FALSE ORDER BY nombre ASC"
     )
     opciones = [
         (servicio["id_servicio"], servicio["nombre"]) for servicio in cursor.fetchall()
@@ -720,7 +720,7 @@ def nuevo_pedido():
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT id_servicio FROM servicios WHERE id_servicio = %s AND activo = TRUE AND archivado = FALSE FOR SHARE",
+                "SELECT id_servicio FROM servicios WHERE id_servicio = %s AND activo = TRUE AND archivado = FALSE AND eliminado = FALSE FOR SHARE",
                 (form.servicio.data,),
             )
             if not cursor.fetchone():
@@ -821,6 +821,7 @@ def seguimiento_pedido(id):
             cursor.execute(
                 """SELECT p.id_pedido, p.estado, p.equipo, p.modelo, p.fecha_entrega, (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_fin,
                           CURRENT_DATE <= (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_vigente, p.anticipo_solicitado, p.anticipo_pagado,
+                          s.nombre AS servicio_nombre, s.descripcion AS servicio_descripcion,
                           COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
                    FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
                    WHERE p.id_pedido = %s AND (%s OR p.id_usuario = %s)""",
@@ -903,7 +904,7 @@ def editar_pedido(id):
             form = EditarPedidoForm()
             cursor.execute(
                 """SELECT id_servicio, nombre, activo, archivado FROM servicios
-                   WHERE (activo = TRUE AND archivado = FALSE) OR id_servicio = %s ORDER BY nombre""",
+                   WHERE (activo = TRUE AND archivado = FALSE AND eliminado = FALSE) OR id_servicio = %s ORDER BY nombre""",
                 (pedido["id_servicio"],),
             )
             form.servicio.choices = [
@@ -927,7 +928,7 @@ def editar_pedido(id):
                 # Revalidar y bloquear el servicio seleccionado frente a una pausa concurrente.
                 cursor.execute(
                     """SELECT id_servicio FROM servicios
-                       WHERE id_servicio = %s AND ((activo = TRUE AND archivado = FALSE) OR id_servicio = %s)
+                       WHERE id_servicio = %s AND ((activo = TRUE AND archivado = FALSE AND eliminado = FALSE) OR id_servicio = %s)
                        FOR SHARE""",
                     (form.servicio.data, pedido["id_servicio"]),
                 )
@@ -1565,7 +1566,7 @@ def mis_facturas():
         """
         SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
                f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
-               COALESCE(f.equipo_modelo, p.modelo) AS modelo, COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre
+               COALESCE(f.equipo_modelo, p.modelo) AS modelo, COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre, f.servicio_descripcion, f.servicio_precio
         FROM facturas f
         LEFT JOIN pedidos p ON p.id_pedido = f.id_pedido
         LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
@@ -1613,10 +1614,12 @@ def descargar_factura(id):
              COALESCE((SELECT SUM(pg.monto) FROM pagos pg WHERE pg.id_pedido=f.id_pedido
                     AND pg.tipo_pago IN ('saldo','total') AND pg.estado='Confirmado'),
                    CASE WHEN f.estado='Pagada' THEN f.total ELSE 0 END) AS saldo_pagado,
-               u.usuario, u.correo,
-               pu.nombres, pu.apellidos,
-               COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre
+               COALESCE(c.nombre, u.usuario) AS usuario, COALESCE(c.correo, u.correo) AS correo,
+               CASE WHEN c.id_cliente IS NULL THEN pu.nombres ELSE c.nombre END AS nombres,
+               CASE WHEN c.id_cliente IS NULL THEN pu.apellidos END AS apellidos,
+               COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre, f.servicio_descripcion, f.servicio_precio
         FROM facturas f
+        LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
         LEFT JOIN usuarios u ON u.id_usuario = f.id_usuario
         LEFT JOIN perfiles_usuario pu ON pu.id_usuario = u.id_usuario
         LEFT JOIN pedidos p ON p.id_pedido = f.id_pedido
@@ -1689,19 +1692,19 @@ def descargar_factura(id):
 
     documento.setFont("Helvetica-Bold", 11)
     documento.drawString(72, cliente_y - 24, "DETALLE DEL SERVICIO")
-    precio = (
-        factura["subtotal"] if factura["subtotal"] is not None else factura["total"]
-    )
+    precio = factura["servicio_precio"]
+    if precio is None:
+        precio = factura["subtotal"] if factura["subtotal"] is not None else factura["total"]
     equipo_detalle = "Equipo: " + escape(factura["equipo"] or "No especificado")
     if factura["modelo"]:
         equipo_detalle += "<br/>Modelo: " + escape(factura["modelo"])
     detalle_data = [
         ["Servicio", "Equipo", "Cantidad", "Precio base"],
         [
-            Paragraph(
+            [Paragraph(
                 escape(factura["servicio_nombre"] or "Servicio no disponible"),
                 styles["Normal"],
-            ),
+            ), Paragraph(escape(factura["servicio_descripcion"] or ""), styles["Normal"])],
             Paragraph(equipo_detalle, styles["Normal"]),
             "1",
             f"${precio:.2f}",
@@ -1901,7 +1904,7 @@ def servicios():
                 """SELECT s.*, p.empresa AS proveedor_empresa
                    FROM servicios s LEFT JOIN proveedores p ON s.id_proveedor = p.id_proveedor
                    WHERE ("""
-                + condicion
+                + condicion + " AND s.eliminado = FALSE"
                 + """)
                      AND (%s IS NULL OR s.id_proveedor = %s)
                      AND (s.nombre ILIKE %s OR s.descripcion ILIKE %s
@@ -2036,7 +2039,7 @@ def editar_servicio(id):
     """Modificar un registro existente utilizando WHERE y UPDATE parametrizado."""
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute("SELECT * FROM servicios WHERE id_servicio = %s", (id,))
+    cursor.execute("SELECT * FROM servicios WHERE id_servicio = %s AND eliminado = FALSE", (id,))
     servicio = cursor.fetchone()
 
     if not servicio:
@@ -2160,6 +2163,26 @@ def editar_servicio(id):
     )
 
 
+def eliminar_registro(tabla, clave, id):
+    """Tablas y claves constantes internas; conserva relaciones y auditoría."""
+    if not EliminarForm().validate_on_submit():
+        abort(400)
+    conn = obtener_conexion()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE {tabla} SET eliminado = TRUE, activo = FALSE "
+                f"WHERE {clave} = %s AND eliminado = FALSE", (id,),
+            )
+            if cursor.rowcount == 0:
+                abort(404)
+        conn.commit()
+    finally:
+        conn.close()
+    flash("El registro dejará de estar disponible para nuevas operaciones, pero se conservará en el historial.", "success")
+    return redirect(url_for(tabla))
+
+
 def cambiar_activo(tabla, clave, id, activo):
     """Los nombres SQL son constantes internas; los valores son parámetros."""
     form = EliminarForm()
@@ -2170,7 +2193,8 @@ def cambiar_activo(tabla, clave, id, activo):
         with conn.cursor() as cursor:
             cursor.execute(
                 f"UPDATE {tabla} SET activo = %s WHERE {clave} = %s"
-                + (" AND archivado = FALSE" if tabla == "servicios" else ""),
+                + (" AND archivado = FALSE" if tabla == "servicios" else "")
+                + (" AND eliminado = FALSE" if tabla in ("servicios", "clientes") else ""),
                 (activo, id),
             )
             if cursor.rowcount == 0:
@@ -2186,10 +2210,15 @@ def cambiar_activo(tabla, clave, id, activo):
 
 
 @app.route("/servicios/eliminar/<int:id>", methods=["POST"])
-@app.route("/servicios/desactivar/<int:id>", methods=["POST"])
 @app.route("/productos/eliminar/<int:id>", methods=["POST"])
 @admin_required
 def eliminar_servicio(id):
+    return eliminar_registro("servicios", "id_servicio", id)
+
+
+@app.route("/servicios/desactivar/<int:id>", methods=["POST"])
+@admin_required
+def desactivar_servicio(id):
     return cambiar_activo("servicios", "id_servicio", id, False)
 
 
@@ -2208,7 +2237,7 @@ def cambiar_archivado_servicio(id, archivado):
         with conn.cursor() as cursor:
             cursor.execute(
                 """UPDATE servicios SET archivado = %s, activo = FALSE
-                   WHERE id_servicio = %s""",
+                   WHERE id_servicio = %s AND eliminado = FALSE""",
                 (archivado, id),
             )
             if cursor.rowcount == 0:
@@ -2268,7 +2297,7 @@ def clientes():
             cursor.execute(
                 """SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado, activo
                    FROM clientes
-                   WHERE (nombre ILIKE %s OR cedula ILIKE %s OR telefono ILIKE %s
+                   WHERE eliminado = FALSE AND (nombre ILIKE %s OR cedula ILIKE %s OR telefono ILIKE %s
                           OR correo ILIKE %s OR equipo ILIKE %s)
                      AND (%s = '' OR estado = %s)
                      AND (%s IS NULL OR activo = %s)
@@ -2328,7 +2357,7 @@ def editar_cliente(id):
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
-        "SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado FROM clientes WHERE id_cliente = %s",
+        "SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado FROM clientes WHERE id_cliente = %s AND eliminado = FALSE",
         (id,),
     )
     cliente = cursor.fetchone()
@@ -2373,9 +2402,14 @@ def editar_cliente(id):
 
 
 @app.route("/clientes/eliminar/<int:id>", methods=["POST"])
-@app.route("/clientes/desactivar/<int:id>", methods=["POST"])
 @admin_required
 def eliminar_cliente(id):
+    return eliminar_registro("clientes", "id_cliente", id)
+
+
+@app.route("/clientes/desactivar/<int:id>", methods=["POST"])
+@admin_required
+def desactivar_cliente(id):
     return cambiar_activo("clientes", "id_cliente", id, False)
 
 
@@ -2559,7 +2593,7 @@ def facturacion():
                     SELECT f.id_factura, f.numero, f.id_pedido,
                            COALESCE(c.nombre, NULLIF(CONCAT_WS(' ', pu.nombres, pu.apellidos), ''), u.usuario, u.correo, 'Sin cliente') AS cliente,
                            COALESCE(c.correo, u.correo, '') AS correo,
-                           COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio,
+                           COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio, f.servicio_descripcion, f.servicio_precio,
                            f.fecha, f.total, f.estado, f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
                     FROM facturas f
                     LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
