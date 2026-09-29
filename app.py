@@ -1936,6 +1936,7 @@ def nombre_servicio_duplicado(cursor, nombre, excluir=None):
     cursor.execute(
         """SELECT archivado FROM servicios
            WHERE LOWER(BTRIM(nombre)) = LOWER(BTRIM(%s))
+             AND eliminado = FALSE
              AND (%s IS NULL OR id_servicio <> %s)
            ORDER BY archivado ASC LIMIT 1""",
         (nombre, excluir, excluir),

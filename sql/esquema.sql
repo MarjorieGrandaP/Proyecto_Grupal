@@ -475,18 +475,12 @@ FROM recuperables r
 WHERE f.id_factura = r.id_factura
   AND NULLIF(BTRIM(f.servicio_nombre), '') IS NULL;
 
--- No eliminar ni fusionar duplicados preexistentes durante una migración.
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM servicios GROUP BY LOWER(BTRIM(nombre)) HAVING COUNT(*) > 1
-    ) THEN
-        CREATE UNIQUE INDEX IF NOT EXISTS servicios_nombre_normalizado_unique
-            ON servicios (LOWER(BTRIM(nombre)));
-    ELSE
-        RAISE NOTICE 'Existen servicios duplicados; revisar antes de crear el índice único.';
-    END IF;
-END $$;
+-- Solo la eliminación lógica libera el nombre; pausados y archivados lo reservan.
+ALTER TABLE servicios ADD COLUMN IF NOT EXISTS eliminado BOOLEAN NOT NULL DEFAULT FALSE;
+DROP INDEX IF EXISTS servicios_nombre_normalizado_unique;
+CREATE UNIQUE INDEX IF NOT EXISTS servicios_nombre_normalizado_unique
+    ON servicios (LOWER(BTRIM(nombre)))
+    WHERE eliminado = FALSE;
 
 -- Modalidad y seguimiento persistente; migración aditiva y reejecutable.
 ALTER TABLE servicios
