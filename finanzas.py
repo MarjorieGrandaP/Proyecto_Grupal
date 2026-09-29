@@ -14,11 +14,16 @@ def validar_tarifa(valor):
     return tarifa
 
 
-def importes(precio, tarifa):
+def importes(precio, tarifa, descuento=0):
     subtotal = Decimal(str(precio)).quantize(CENTAVO, rounding=ROUND_HALF_UP)
     tarifa = validar_tarifa(tarifa)
-    iva = (subtotal * tarifa).quantize(CENTAVO, rounding=ROUND_HALF_UP)
-    total = subtotal + iva
+    descuento = validar_tarifa(descuento)
+    valor_descuento = (subtotal * descuento).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    base = subtotal - valor_descuento
+    iva = (base * tarifa).quantize(CENTAVO, rounding=ROUND_HALF_UP)
+    total = base + iva
     anticipo = (total / 2).quantize(CENTAVO, rounding=ROUND_HALF_UP)
-    return dict(subtotal=subtotal, porcentaje_iva=tarifa, valor_iva=iva, total=total,
+    return dict(subtotal=subtotal, porcentaje_descuento=descuento,
+                valor_descuento=valor_descuento, subtotal_con_descuento=base,
+                porcentaje_iva=tarifa, valor_iva=iva, total=total,
                 anticipo_requerido=anticipo, saldo_requerido=total-anticipo)

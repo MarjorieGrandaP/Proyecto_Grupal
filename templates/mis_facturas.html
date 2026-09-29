@@ -3,6 +3,7 @@
 {% block title %}PC-Fix - Mis facturas{% endblock %}
 
 {% block content %}
+{% from "components/importes.html" import desglose %}
 <section class="seccion-contenido my-4">
     <h2 class="titulo-seccion text-center">Mis facturas</h2>
     <form method="GET" action="{{ url_for('mis_facturas') }}" class="row g-3 align-items-end mb-4" role="search">
@@ -56,7 +57,7 @@
                     <td>#{{ factura.id_pedido or 'No vinculado' }}</td>
                     <td>{{ factura.servicio_nombre or 'Servicio no disponible' }}{% if factura.servicio_descripcion %}<div class="small text-muted">{{ factura.servicio_descripcion }}</div>{% endif %}{% if factura.equipo %}<div class="small text-muted">Equipo: {{ factura.equipo }}</div>{% endif %}{% if factura.modelo %}<div class="small text-muted">Modelo: {{ factura.modelo }}</div>{% endif %}</td>
                     <td>{{ factura.fecha }}</td>
-                    <td>${{ "%.2f"|format(factura.total) }}</td>
+                    <td>${{ "%.2f"|format(factura.total) }}{% if factura.subtotal is not none %}<details class="mt-1"><summary class="small">Ver desglose</summary>{{ desglose(factura) }}</details>{% endif %}</td>
                     <td><span
                             class="badge {% if factura.estado == 'Pagada' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{
                             factura.estado }}</span></td>
@@ -71,5 +72,6 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 {% endblock %}

@@ -1,0 +1,11 @@
+{% macro desglose(valores) %}
+<dl class="row small mb-0">
+    <dt class="col-7">Subtotal/base</dt><dd class="col-5">${{ '%.2f'|format(valores.subtotal) }}</dd>
+    {% if valores.valor_descuento %}
+    <dt class="col-7">Descuento ({{ '%g'|format(valores.porcentaje_descuento * 100) }} %){% if valores.nombre_promocion %} · {{ valores.nombre_promocion }}{% endif %}</dt><dd class="col-5">−${{ '%.2f'|format(valores.valor_descuento) }}</dd>
+    <dt class="col-7">Subtotal después del descuento</dt><dd class="col-5">${{ '%.2f'|format(valores.subtotal_con_descuento) }}</dd>
+    {% endif %}
+    {% if valores.porcentaje_iva is not none %}<dt class="col-7">IVA ({{ '%g'|format(valores.porcentaje_iva * 100) }} %)</dt><dd class="col-5">${{ '%.2f'|format(valores.valor_iva) }}</dd>{% endif %}
+    <dt class="col-7">TOTAL</dt><dd class="col-5 fw-bold">${{ '%.2f'|format(valores.total) }}</dd>
+</dl>
+{% endmacro %}

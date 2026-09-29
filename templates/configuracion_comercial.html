@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}PC-Fix - Parámetros comerciales{% endblock %}
+{% block content %}
+<section class="seccion-contenido my-4">
+    <h2 class="titulo-seccion">Parámetros comerciales</h2>
+    <p class="alert alert-info">Los cambios se aplicarán únicamente a nuevas operaciones.
+        Las facturas y pedidos anteriores conservarán sus valores históricos.</p>
+    <form method="POST" class="card card-body shadow-sm">
+        {{ form.hidden_tag() }}
+        {% if form.csrf_token is defined %}{% for error in form.csrf_token.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}{% endif %}
+        <h3 class="h5">Impuestos</h3>
+        <div class="mb-4">{{ form.porcentaje_iva.label(class="form-label") }}
+            {{ form.porcentaje_iva(class="form-control", type="number", min="0", max="100", step="0.01", required=true) }}
+            {% for error in form.porcentaje_iva.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <h3 class="h5">Promoción</h3>
+        <div class="form-check mb-3">{{ form.descuento_activo(class="form-check-input") }}{{ form.descuento_activo.label(class="form-check-label") }}</div>
+        <div class="row g-3">
+            {% for field in [form.nombre_promocion, form.porcentaje_descuento, form.fecha_inicio_descuento, form.fecha_fin_descuento] %}
+            <div class="col-12 col-md-6">{{ field.label(class="form-label") }}
+                {% if field.name == 'porcentaje_descuento' %}{{ field(class="form-control", type="number", min="0", max="100", step="0.01", required=true) }}
+                {% else %}{{ field(class="form-control") }}{% endif %}
+                {% for error in field.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <p class="form-text">Las fechas son opcionales e incluyen el día inicial y final (hora de Ecuador).</p>
+        <div class="mt-3">{{ form.guardar(class="btn btn-primary") }} <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Volver al panel</a></div>
+    </form>
+    {% if configuracion.fecha_actualizacion %}<p class="small text-muted mt-3">Última actualización: {{ configuracion.fecha_actualizacion }} · Administrador #{{ configuracion.actualizado_por }}</p>{% endif %}
+</section>
+{% endblock %}

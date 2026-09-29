@@ -13,7 +13,7 @@
             <select id="tabla" name="tabla" class="form-select">
                 <option value="">Todas</option>
                 {% for opcion in ['usuarios', 'perfiles_usuario', 'servicios', 'pedidos', 'facturas', 'clientes',
-                'proveedores'] %}
+                'proveedores', 'configuracion_comercial'] %}
                 <option value="{{ opcion }}" {% if tabla==opcion %}selected{% endif %}>{{ opcion }}</option>
                 {% endfor %}
             </select>
@@ -75,5 +75,6 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 {% endblock %}

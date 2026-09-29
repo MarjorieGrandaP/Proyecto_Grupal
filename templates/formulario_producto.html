@@ -41,7 +41,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="precio" class="form-label fw-bold">Precio base sin IVA ($)</label><p class="form-text">IVA de proyecto: {{ config.IVA_RATE * 100 }} %.</p>
+                            <label for="precio" class="form-label fw-bold">Precio base sin IVA ($)</label><p class="form-text">IVA de proyecto: {{ configuracion_vigente().porcentaje_iva }} %.</p>
                             {{ form.precio(class="form-control", type="number", min="0.01", step="0.01", required=true,
                             data_validation="required,min:0.01", data_validation_message="Es obligatorio y debe ser
                             mayor que 0.") }}

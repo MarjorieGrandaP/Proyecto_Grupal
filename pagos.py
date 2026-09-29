@@ -128,6 +128,7 @@ def resumen_pago(cursor, pedido):
     tipos = []
     if (
         total is not None
+        and (pedido.get('porcentaje_descuento') is None or pedido.get('anticipo_solicitado'))
         and not completo
         and pedido["estado"] not in ("Cancelado", "Entregado")
     ):
@@ -164,9 +165,15 @@ def solicitar_anticipo(cursor, ident, tarifa):
     if pedido["estado"] not in ("En revisión", "En reparación", "Listo"):
         raise ValueError("El anticipo se solicita después de iniciar la revisión.")
     if pedido["total"] is not None:
+        if not pedido['anticipo_solicitado']:
+            cursor.execute('''UPDATE pedidos SET anticipo_solicitado=TRUE, pago_solicitado_por=%s,
+                              fecha_solicitud_pago=CURRENT_TIMESTAMP, fecha_actualizacion=CURRENT_TIMESTAMP
+                              WHERE id_pedido=%s''', (current_user.id, ident))
         return
     if pedido["precio"] is None:
         raise ValueError("El servicio no tiene un precio disponible.")
+    # Pedidos antiguos sin cotización: conservar el flujo previo, sin aplicarles
+    # promociones nuevas. Los pedidos nuevos ya traen todos sus importes.
     valores = importes(pedido["precio"], tarifa)
     cursor.execute(
         """UPDATE pedidos SET subtotal=%s,porcentaje_iva=%s,valor_iva=%s,total=%s,

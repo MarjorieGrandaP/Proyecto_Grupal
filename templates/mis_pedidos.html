@@ -17,6 +17,7 @@
         <a data-bs-toggle="modal" data-bs-target="#modalSeguimiento" data-seguimiento-url="{{ url_for('seguimiento_pedido', id=listo.id_pedido, modal=1) }}" href="{{ url_for('seguimiento_pedido', id=listo.id_pedido) }}" class="btn btn-sm btn-outline-success">Ver seguimiento</a>
     </div>
     {% endfor %}
+    {% if total_listos > 10 %}<p class="small">Tienes {{ total_listos }} pedidos listos. <a href="{{ url_for('mis_pedidos', q='Listo') }}">Ver todos los pedidos listos</a></p>{% endif %}
     {% with etiqueta_busqueda="Buscar pedido", ruta_busqueda="mis_pedidos" %}
     {% include "components/buscador.html" %}
     {% endwith %}
@@ -93,6 +94,7 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 {% endblock %}
 

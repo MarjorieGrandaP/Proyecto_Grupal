@@ -9,7 +9,7 @@
         <h2 class="titulo-seccion mb-0">Módulo de Clientes</h2>
         <div>
             <a href="{{ url_for('nuevo_cliente') }}" class="btn btn-success me-2">Registrar Cliente</a>
-            <span class="badge bg-primary fs-6 px-3 py-2">Total: {{ clientes|length }}</span>
+            <span class="badge bg-primary fs-6 px-3 py-2">Total: {{ paginacion.total }}</span>
         </div>
     </div>
     <p class="text-muted mb-4">Consulta los datos de contacto y el estado de los equipos de tus clientes.</p>
@@ -74,6 +74,7 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 
 {% endblock %}

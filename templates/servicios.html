@@ -3,6 +3,7 @@
 {% block title %}PC-Fix - Servicios Técnicos{% endblock %}
 
 {% block content %}
+{% from "components/importes.html" import desglose %}
 
 <section id="servicios" class="seccion-contenido admin-listado">
     {% if current_user.rol == "admin" %}
@@ -67,7 +68,7 @@
                         <span class="badge bg-secondary">{{ servicio.proveedor_empresa or 'Sin proveedor' }}</span>
                     </td>
                     <td>{{ servicio.duracion }}</td>
-                    <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}<div class="small text-muted">Total con IVA: ${{ "%.2f"|format(precio_con_iva(servicio.precio)) }}</div></td>
+                    <td class="text-success fw-bold">${{ "%.2f"|format(servicio.precio) }}<div class="small text-muted">Total con IVA: ${{ "%.2f"|format(precio_con_iva(servicio.precio)) }}</div><details class="text-body fw-normal mt-1"><summary class="small">Ver desglose</summary>{{ desglose(cotizacion_servicio(servicio.precio)) }}</details></td>
                     {% if current_user.rol == "cliente" %}
                     <td class="text-center">
                         <a href="{{ url_for('nuevo_pedido', servicio=servicio.id_servicio) }}"
@@ -107,6 +108,7 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 
 

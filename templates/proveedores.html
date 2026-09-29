@@ -9,7 +9,7 @@
         <h2 class="titulo-seccion mb-0">Módulo de Proveedores</h2>
         <div>
             <a href="{{ url_for('nuevo_proveedor') }}" class="btn btn-success me-2">Registrar Proveedor</a>
-            <span class="badge bg-primary fs-6 px-3 py-2">Total: {{ proveedores|length }}</span>
+            <span class="badge bg-primary fs-6 px-3 py-2">Total: {{ paginacion.total }}</span>
         </div>
     </div>
     <p class="text-muted mb-4">Proveedores de repuestos y componentes con los que trabajamos para garantizar repuestos
@@ -59,6 +59,7 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 
 {% endblock %}

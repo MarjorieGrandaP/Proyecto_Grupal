@@ -1,3 +1,6 @@
+from paginacion import paginar
+from comercial import leer_configuracion, cotizar
+from forms.configuracion_comercial_form import ConfiguracionComercialForm
 from finanzas import IVA_PREDETERMINADO, validar_tarifa, importes
 from pagos import registrar_rutas_pagos, resumen_pago, solicitar_anticipo
 from forms.producto_form import separar_duracion
@@ -24,6 +27,7 @@ from functools import wraps
 
 from flask import (
     Flask,
+    g,
     abort,
     render_template,
     request,
@@ -105,9 +109,24 @@ for clave_pago in (
     "PAYMENT_ACCOUNT_HOLDER",
 ):
     app.config[clave_pago] = os.getenv(clave_pago, "")
-app.jinja_env.globals["precio_con_iva"] = lambda precio: importes(
-    precio, app.config["IVA_RATE"]
-)["total"]
+
+
+def configuracion_vigente():
+    if 'configuracion_comercial' not in g:
+        conn = obtener_conexion()
+        try:
+            with conn.cursor() as cursor:
+                g.configuracion_comercial = leer_configuracion(cursor, app.config['IVA_RATE'])
+        finally:
+            conn.close()
+    return g.configuracion_comercial
+
+
+app.jinja_env.globals.update(
+    configuracion_vigente=configuracion_vigente,
+    cotizacion_servicio=lambda precio: cotizar(precio, configuracion_vigente()),
+    precio_con_iva=lambda precio: cotizar(precio, configuracion_vigente())['total'],
+)
 
 
 app.jinja_env.globals.update(
@@ -702,6 +721,45 @@ def dashboard():
     return render_template("dashboard.html", active="dashboard", resumen=resumen)
 
 
+@app.route('/configuracion', methods=['GET', 'POST'])
+@admin_required
+def configuracion_comercial():
+    form = ConfiguracionComercialForm()
+    conn = obtener_conexion()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            config = leer_configuracion(cursor, app.config['IVA_RATE'])
+            if request.method == 'GET':
+                form.process(data=config)
+            if form.validate_on_submit():
+                cursor.execute('''INSERT INTO configuracion_comercial
+                    (id_configuracion, porcentaje_iva, descuento_activo, porcentaje_descuento,
+                     fecha_inicio_descuento, fecha_fin_descuento, nombre_promocion, actualizado_por)
+                    VALUES (1, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id_configuracion) DO UPDATE SET
+                        porcentaje_iva=EXCLUDED.porcentaje_iva,
+                        descuento_activo=EXCLUDED.descuento_activo,
+                        porcentaje_descuento=EXCLUDED.porcentaje_descuento,
+                        fecha_inicio_descuento=EXCLUDED.fecha_inicio_descuento,
+                        fecha_fin_descuento=EXCLUDED.fecha_fin_descuento,
+                        nombre_promocion=EXCLUDED.nombre_promocion,
+                        actualizado_por=EXCLUDED.actualizado_por,
+                        fecha_actualizacion=CURRENT_TIMESTAMP''',
+                    (form.porcentaje_iva.data, form.descuento_activo.data, form.porcentaje_descuento.data,
+                     form.fecha_inicio_descuento.data, form.fecha_fin_descuento.data,
+                     (form.nombre_promocion.data or '').strip() or None, current_user.id))
+                conn.commit()
+                flash('Configuración comercial guardada.', 'success')
+                return redirect(url_for('configuracion_comercial'))
+        return render_template('configuracion_comercial.html', form=form, configuracion=config,
+                               active='configuracion')
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 @app.route("/pedido/nuevo", methods=["GET", "POST"])
 @cliente_required
 def nuevo_pedido():
@@ -720,14 +778,16 @@ def nuevo_pedido():
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "SELECT id_servicio FROM servicios WHERE id_servicio = %s AND activo = TRUE AND archivado = FALSE AND eliminado = FALSE FOR SHARE",
+                "SELECT id_servicio, precio, nombre, descripcion FROM servicios WHERE id_servicio = %s AND activo = TRUE AND archivado = FALSE AND eliminado = FALSE FOR SHARE",
                 (form.servicio.data,),
             )
-            if not cursor.fetchone():
+            servicio = cursor.fetchone()
+            if not servicio:
                 flash(
                     "El servicio ya no está disponible para nuevos pedidos.", "warning"
                 )
                 return redirect(url_for("nuevo_pedido"))
+            valores = cotizar(servicio[1], leer_configuracion(cursor, app.config['IVA_RATE']))
             cursor.execute(
                 "SELECT set_config('pcfix.usuario_actor', %s, TRUE)",
                 (str(current_user.id),),
@@ -735,8 +795,12 @@ def nuevo_pedido():
             cursor.execute(
                 """
                 INSERT INTO pedidos (id_usuario, id_servicio, equipo, modelo, descripcion, solicita_factura,
-                                     terminos_aceptados, fecha_aceptacion_terminos)
-                VALUES (%s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP)
+                                     terminos_aceptados, fecha_aceptacion_terminos,
+                                     subtotal, porcentaje_iva, valor_iva, total, anticipo_requerido, saldo_requerido,
+                                     porcentaje_descuento, valor_descuento, subtotal_con_descuento, nombre_promocion,
+                                     servicio_nombre, servicio_descripcion)
+                VALUES (%s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     current_user.id,
@@ -745,6 +809,10 @@ def nuevo_pedido():
                     (form.modelo.data or "").strip() or None,
                     form.descripcion.data,
                     form.solicita_factura.data,
+                    valores['subtotal'], valores['porcentaje_iva'], valores['valor_iva'], valores['total'],
+                    valores['anticipo_requerido'], valores['saldo_requerido'],
+                    valores['porcentaje_descuento'], valores['valor_descuento'],
+                    valores['subtotal_con_descuento'], valores['nombre_promocion'], servicio[2], servicio[3],
                 ),
             )
             conn.commit()
@@ -768,35 +836,36 @@ def mis_pedidos():
     patron = f"%{q}%"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
+    paginacion = paginar(cursor,
         """
-        SELECT p.id_pedido, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
+        SELECT p.id_pedido, p.porcentaje_descuento, p.anticipo_solicitado, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
                p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion,
                (clock_timestamp()::timestamp BETWEEN p.fecha_solicitud
                 AND p.fecha_solicitud + INTERVAL '5 minutes') AS dentro_plazo,
-               s.nombre AS servicio_nombre,
+               COALESCE(p.servicio_nombre, s.nombre) AS servicio_nombre,
                COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo,
                f.id_factura
         FROM pedidos p
         LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
         LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
         WHERE p.id_usuario = %s
-        AND (p.id_pedido::text ILIKE %s OR s.nombre ILIKE %s
+        AND (p.id_pedido::text ILIKE %s OR COALESCE(p.servicio_nombre, s.nombre) ILIKE %s
              OR p.equipo ILIKE %s OR p.descripcion ILIKE %s OR p.estado ILIKE %s)
-        ORDER BY p.fecha_solicitud DESC
+        ORDER BY p.fecha_solicitud DESC, p.id_pedido DESC
         """,
         (current_user.id,) + (patron,) * 5,
     )
-    pedidos = cursor.fetchall()
+    pedidos = paginacion["registros"]
     for pedido in pedidos:
         pedido["pago"] = resumen_pago(cursor, pedido)
-    cursor.execute(
-        """SELECT p.id_pedido, COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
-           FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
-           WHERE p.id_usuario = %s AND p.estado = 'Listo'
-           ORDER BY p.fecha_actualizacion DESC""",
-        (current_user.id,),
-    )
+    # Avisos independientes de la búsqueda, con un tamaño acotado.
+    cursor.execute("SELECT COUNT(*) AS total FROM pedidos WHERE id_usuario=%s AND estado='Listo'", (current_user.id,))
+    total_listos = cursor.fetchone()['total']
+    cursor.execute('''SELECT p.id_pedido, COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
+                      FROM pedidos p LEFT JOIN servicios s ON s.id_servicio=p.id_servicio
+                      WHERE p.id_usuario=%s AND p.estado='Listo'
+                      ORDER BY p.fecha_actualizacion DESC, p.id_pedido DESC LIMIT %s OFFSET %s''',
+                   (current_user.id, 10, 0))
     pedidos_listos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -804,10 +873,11 @@ def mis_pedidos():
         "mis_pedidos.html",
         pedidos=pedidos,
         pedidos_listos=pedidos_listos,
+        total_listos=total_listos,
         q=q,
         solicitar_factura_form=PedidoAccionForm(),
         cancelar_form=crear_cancelacion_form(),
-        active="mis_pedidos",
+        paginacion=paginacion, active="mis_pedidos",
     )
 
 
@@ -821,7 +891,7 @@ def seguimiento_pedido(id):
             cursor.execute(
                 """SELECT p.id_pedido, p.estado, p.equipo, p.modelo, p.fecha_entrega, (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_fin,
                           CURRENT_DATE <= (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_vigente, p.anticipo_solicitado, p.anticipo_pagado,
-                          s.nombre AS servicio_nombre, s.descripcion AS servicio_descripcion,
+                          COALESCE(p.servicio_nombre, s.nombre) AS servicio_nombre, COALESCE(p.servicio_descripcion, s.descripcion) AS servicio_descripcion,
                           COALESCE(s.requiere_entrega_equipo, TRUE) AS requiere_entrega_equipo
                    FROM pedidos p LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
                    WHERE p.id_pedido = %s AND (%s OR p.id_usuario = %s)""",
@@ -927,14 +997,28 @@ def editar_pedido(id):
             if form.validate_on_submit():
                 # Revalidar y bloquear el servicio seleccionado frente a una pausa concurrente.
                 cursor.execute(
-                    """SELECT id_servicio FROM servicios
+                    """SELECT id_servicio, precio, nombre, descripcion FROM servicios
                        WHERE id_servicio = %s AND ((activo = TRUE AND archivado = FALSE AND eliminado = FALSE) OR id_servicio = %s)
                        FOR SHARE""",
                     (form.servicio.data, pedido["id_servicio"]),
                 )
-                if not cursor.fetchone():
+                servicio = cursor.fetchone()
+                if not servicio:
                     form.servicio.errors.append("Selecciona un servicio activo.")
                 else:
+                    if (form.servicio.data != pedido['id_servicio']
+                            and pedido['porcentaje_descuento'] is not None):
+                        # Cambio explícito de servicio en una solicitud aún editable:
+                        # conservar las tasas contratadas y cotizar la nueva base.
+                        valores = importes(servicio['precio'], pedido['porcentaje_iva'], pedido['porcentaje_descuento'])
+                        valores.update(id=id, nombre=servicio['nombre'], descripcion=servicio['descripcion'])
+                        cursor.execute('''UPDATE pedidos SET subtotal=%(subtotal)s,
+                            porcentaje_iva=%(porcentaje_iva)s, valor_iva=%(valor_iva)s, total=%(total)s,
+                            anticipo_requerido=%(anticipo_requerido)s, saldo_requerido=%(saldo_requerido)s,
+                            porcentaje_descuento=%(porcentaje_descuento)s, valor_descuento=%(valor_descuento)s,
+                            subtotal_con_descuento=%(subtotal_con_descuento)s,
+                            servicio_nombre=%(nombre)s, servicio_descripcion=%(descripcion)s
+                            WHERE id_pedido=%(id)s''', valores)
                     cursor.execute(
                         """UPDATE pedidos
                            SET id_servicio = %s, equipo = %s, modelo = %s, descripcion = %s,
@@ -1068,7 +1152,8 @@ def registrar_anticipo(id):
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             try:
-                solicitar_anticipo(cursor, id, app.config["IVA_RATE"])
+                configuracion = leer_configuracion(cursor, app.config['IVA_RATE'])
+                solicitar_anticipo(cursor, id, configuracion['porcentaje_iva'] / 100)
             except ValueError as error:
                 flash(str(error), "warning")
                 return redirect(url_for("pedidos_admin"))
@@ -1146,13 +1231,13 @@ def pedidos_admin():
         orden = "recientes"
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(
+    paginacion = paginar(cursor,
         """
-        SELECT p.id_pedido, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
-               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion, p.anticipo_solicitado, p.anticipo_pagado,
+        SELECT p.id_pedido, p.porcentaje_descuento, p.anticipo_solicitado, p.total, p.anticipo_requerido, p.saldo_requerido, p.equipo, p.modelo, p.descripcion, p.estado,
+               p.solicita_factura, p.fecha_solicitud, p.fecha_actualizacion, p.anticipo_pagado,
              u.usuario, u.correo,
              pu.nombres, pu.apellidos,
-               s.nombre AS servicio_nombre,
+               COALESCE(p.servicio_nombre, s.nombre) AS servicio_nombre,
                f.id_factura, f.numero AS factura_numero, f.estado AS factura_estado,
                d.diagnostico, d.trabajo_realizado, d.repuestos, d.recomendaciones,
                p.fecha_entrega, (p.fecha_entrega + INTERVAL '3 months')::date AS garantia_fin,
@@ -1164,7 +1249,7 @@ def pedidos_admin():
         LEFT JOIN facturas f ON f.id_pedido = p.id_pedido
         LEFT JOIN detalle_servicio d ON d.id_pedido = p.id_pedido
         WHERE (CONCAT_WS(' ', pu.nombres, pu.apellidos) ILIKE %s
-               OR u.usuario ILIKE %s OR u.correo ILIKE %s OR s.nombre ILIKE %s
+               OR u.usuario ILIKE %s OR u.correo ILIKE %s OR COALESCE(p.servicio_nombre, s.nombre) ILIKE %s
                OR p.equipo ILIKE %s OR p.descripcion ILIKE %s OR p.id_pedido::text ILIKE %s)
           AND (%s = '' OR p.estado = %s)
           AND (%s::date IS NULL OR p.fecha_solicitud::date = %s::date)
@@ -1175,7 +1260,7 @@ def pedidos_admin():
         + ordenes[orden],
         (f"%{q}%",) * 7 + (estado, estado, fecha_param, fecha_param),
     )
-    pedidos = cursor.fetchall()
+    pedidos = paginacion["registros"]
     for pedido in pedidos:
         pedido["pago"] = resumen_pago(cursor, pedido)
     cursor.close()
@@ -1196,7 +1281,7 @@ def pedidos_admin():
         equipo_form=EquipoPedidoForm(),
         tecnico_form=DetalleServicioForm(),
         observacion_form=ObservacionPedidoForm(),
-        active="pedidos",
+        paginacion=paginacion, active="pedidos",
     )
 
 
@@ -1209,6 +1294,7 @@ def auditoria():
     fecha = request.args.get("fecha", "").strip()
 
     tablas_permitidas = {
+        "configuracion_comercial",
         "usuarios",
         "perfiles_usuario",
         "servicios",
@@ -1233,6 +1319,11 @@ def auditoria():
     else:
         operacion = ""
 
+    try:
+        if fecha:
+            datetime.strptime(fecha, '%Y-%m-%d')
+    except ValueError:
+        fecha = ''
     if fecha:
         condiciones.append("fecha_hora::date = %s")
         parametros.append(fecha)
@@ -1244,12 +1335,12 @@ def auditoria():
     """
     if condiciones:
         consulta += " WHERE " + " AND ".join(condiciones)
-    consulta += " ORDER BY fecha_hora DESC"
+    consulta += " ORDER BY fecha_hora DESC, id_auditoria DESC"
 
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    cursor.execute(consulta, tuple(parametros))
-    registros = cursor.fetchall()
+    paginacion = paginar(cursor,consulta, tuple(parametros))
+    registros = paginacion["registros"]
     cursor.close()
     conn.close()
 
@@ -1259,7 +1350,7 @@ def auditoria():
         tabla=tabla,
         operacion=operacion,
         fecha=fecha,
-        active="auditoria",
+        paginacion=paginacion, active="auditoria",
     )
 
 
@@ -1459,7 +1550,11 @@ def emitir_factura(id):
             cursor.execute(
                 """
                 SELECT p.id_pedido, p.id_usuario, p.id_servicio, p.estado,
-                       p.solicita_factura, p.equipo, p.modelo, p.subtotal, p.porcentaje_iva, p.valor_iva, p.total, p.anticipo_requerido, p.saldo_requerido, s.nombre AS servicio_nombre, s.precio
+                       p.solicita_factura, p.equipo, p.modelo, p.subtotal, p.porcentaje_iva, p.valor_iva, p.total, p.anticipo_requerido, p.saldo_requerido,
+                       p.porcentaje_descuento, p.valor_descuento, p.subtotal_con_descuento, p.nombre_promocion,
+                       COALESCE(p.servicio_nombre, s.nombre) AS servicio_nombre,
+                       COALESCE(p.servicio_descripcion, s.descripcion) AS servicio_descripcion,
+                       COALESCE(p.subtotal, s.precio) AS precio
                 FROM pedidos p
                 LEFT JOIN servicios s ON s.id_servicio = p.id_servicio
                 WHERE p.id_pedido = %s
@@ -1507,9 +1602,12 @@ def emitir_factura(id):
                 """
                 INSERT INTO facturas (
                     numero, id_cliente, id_servicio, fecha, total, estado,
-                    id_usuario, id_pedido, servicio_nombre, equipo_nombre, equipo_modelo, subtotal, porcentaje_iva, valor_iva
+                    id_usuario, id_pedido, servicio_nombre, equipo_nombre, equipo_modelo, subtotal, porcentaje_iva, valor_iva,
+                    porcentaje_descuento, valor_descuento, subtotal_con_descuento, nombre_promocion,
+                    servicio_descripcion, servicio_precio
                 )
-                VALUES (%s, NULL, %s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, NULL, %s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id_pedido) WHERE id_pedido IS NOT NULL DO NOTHING
                 RETURNING id_factura
                 """,
@@ -1526,6 +1624,9 @@ def emitir_factura(id):
                     valores["subtotal"],
                     valores["porcentaje_iva"],
                     valores["valor_iva"],
+                    valores['porcentaje_descuento'], valores['valor_descuento'],
+                    valores['subtotal_con_descuento'], valores['nombre_promocion'],
+                    pedido['servicio_descripcion'], pedido['precio'],
                 ),
             )
             emitida = cursor.fetchone()
@@ -1562,9 +1663,9 @@ def mis_facturas():
     conn = obtener_conexion()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     # Solo se concatena una cláusula constante de la lista permitida.
-    cursor.execute(
+    paginacion = paginar(cursor,
         """
-        SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado,
+        SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado, f.subtotal, f.porcentaje_iva, f.valor_iva, f.porcentaje_descuento, f.valor_descuento, f.subtotal_con_descuento, f.nombre_promocion,
                f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
                COALESCE(f.equipo_modelo, p.modelo) AS modelo, COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio_nombre, f.servicio_descripcion, f.servicio_precio
         FROM facturas f
@@ -1578,7 +1679,7 @@ def mis_facturas():
         ORDER BY """ + ordenes[orden],
         (current_user.id,) + (patron,) * 5 + (estado, estado),
     )
-    facturas = cursor.fetchall()
+    facturas = paginacion["registros"]
     cursor.close()
     conn.close()
     return render_template(
@@ -1587,7 +1688,7 @@ def mis_facturas():
         q=q,
         estado=estado,
         orden=orden,
-        active="mis_facturas",
+        paginacion=paginacion, active="mis_facturas",
     )
 
 
@@ -1606,7 +1707,7 @@ def descargar_factura(id):
 
     cursor.execute(
         f"""
-         SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado, f.subtotal, f.porcentaje_iva, f.valor_iva,
+         SELECT f.id_factura, f.numero, f.fecha, f.total, f.estado, f.subtotal, f.porcentaje_iva, f.valor_iva, f.porcentaje_descuento, f.valor_descuento, f.subtotal_con_descuento, f.nombre_promocion,
                f.id_pedido, COALESCE(f.equipo_nombre, p.equipo) AS equipo,
                COALESCE(f.equipo_modelo, p.modelo) AS modelo,
              COALESCE((SELECT SUM(pg.monto) FROM pagos pg WHERE pg.id_pedido=f.id_pedido
@@ -1739,6 +1840,11 @@ def descargar_factura(id):
             f"${precio:.2f}",
         ]
     ]
+    if factura['valor_descuento']:
+        resumen_data.extend([
+            [f"Descuento ({factura['porcentaje_descuento'] * 100:g} %)", f"-${factura['valor_descuento']:.2f}"],
+            [Paragraph('Subtotal después del descuento', styles['Normal']), f"${factura['subtotal_con_descuento']:.2f}"],
+        ])
     if factura["porcentaje_iva"] is not None:
         resumen_data.append(
             [
@@ -1750,6 +1856,7 @@ def descargar_factura(id):
         )
     else:
         resumen_data.append(["IVA histórico", "No desglosado"])
+    fila_total = len(resumen_data)
     resumen_data.append(["TOTAL", f"${factura['total']:.2f}"])
     if factura["subtotal"] is not None:
         resumen_data += [
@@ -1766,10 +1873,10 @@ def descargar_factura(id):
         TableStyle(
             [
                 ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 2), (-1, 2), 13),
-                ("TEXTCOLOR", (0, 2), (-1, 2), colors.HexColor("#112248")),
-                ("LINEABOVE", (0, 2), (-1, 2), 1, colors.HexColor("#d4af37")),
+                ("FONTNAME", (0, fila_total), (-1, fila_total), "Helvetica-Bold"),
+                ("FONTSIZE", (0, fila_total), (-1, fila_total), 13),
+                ("TEXTCOLOR", (0, fila_total), (-1, fila_total), colors.HexColor("#112248")),
+                ("LINEABOVE", (0, fila_total), (-1, fila_total), 1, colors.HexColor("#d4af37")),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
@@ -1900,7 +2007,7 @@ def servicios():
             )
             if current_user.rol != "admin":
                 estado = "activos"
-            cursor.execute(
+            paginacion = paginar(cursor,
                 """SELECT s.*, p.empresa AS proveedor_empresa
                    FROM servicios s LEFT JOIN proveedores p ON s.id_proveedor = p.id_proveedor
                    WHERE ("""
@@ -1913,12 +2020,12 @@ def servicios():
                 + ordenes[orden],
                 (proveedor, proveedor) + (f"%{q}%",) * 4,
             )
-            servicios_db = cursor.fetchall()
+            servicios_db = paginacion["registros"]
     finally:
         conn.close()
     return render_template(
         "servicios.html",
-        active="servicios",
+        paginacion=paginacion, active="servicios",
         servicios=servicios_db,
         q=q,
         estado=estado,
@@ -2295,7 +2402,7 @@ def clientes():
     conn = obtener_conexion()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
+            paginacion = paginar(cursor,
                 """SELECT id_cliente, nombre, cedula, telefono, correo, equipo, modelo, estado, activo
                    FROM clientes
                    WHERE eliminado = FALSE AND (nombre ILIKE %s OR cedula ILIKE %s OR telefono ILIKE %s
@@ -2306,12 +2413,12 @@ def clientes():
                 + ordenes[orden],
                 (f"%{q}%",) * 5 + (estado, estado, activo, activo),
             )
-            clientes_db = cursor.fetchall()
+            clientes_db = paginacion["registros"]
     finally:
         conn.close()
     return render_template(
         "clientes.html",
-        active="clientes",
+        paginacion=paginacion, active="clientes",
         clientes=clientes_db,
         q=q,
         estado=estado,
@@ -2445,7 +2552,7 @@ def proveedores():
             categorias = [fila["categoria"] for fila in cursor.fetchall()]
             if categoria not in categorias:
                 categoria = ""
-            cursor.execute(
+            paginacion = paginar(cursor,
                 """SELECT id_proveedor, empresa, contacto, telefono, categoria, activo
                    FROM proveedores
                    WHERE (empresa ILIKE %s OR contacto ILIKE %s OR telefono ILIKE %s OR categoria ILIKE %s)
@@ -2454,11 +2561,11 @@ def proveedores():
                    ORDER BY """ + ordenes[orden],
                 (f"%{q}%",) * 4 + (activo, activo, categoria, categoria),
             )
-            proveedores_db = cursor.fetchall()
+            proveedores_db = paginacion["registros"]
     finally:
         conn.close()
     return render_template(
-        "proveedores.html", active="proveedores", proveedores=proveedores_db,
+        "proveedores.html", paginacion=paginacion, active="proveedores", proveedores=proveedores_db,
         q=q, estado=estado, categoria=categoria, categorias=categorias, orden=orden,
         eliminar_form=EliminarForm(),
     )
@@ -2589,13 +2696,13 @@ def facturacion():
                 estados.append(("Pendiente", "Pendiente"))
             if estado not in dict(estados):
                 estado = ""
-            cursor.execute(
+            paginacion = paginar(cursor,
                 """SELECT * FROM (
                     SELECT f.id_factura, f.numero, f.id_pedido,
                            COALESCE(c.nombre, NULLIF(CONCAT_WS(' ', pu.nombres, pu.apellidos), ''), u.usuario, u.correo, 'Sin cliente') AS cliente,
                            COALESCE(c.correo, u.correo, '') AS correo,
                            COALESCE(f.servicio_nombre, s.nombre, 'Servicio no disponible') AS servicio, f.servicio_descripcion, f.servicio_precio,
-                           f.fecha, f.total, f.estado, f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
+                           f.fecha, f.total, f.estado, f.subtotal, f.porcentaje_iva, f.valor_iva, f.porcentaje_descuento, f.valor_descuento, f.subtotal_con_descuento, f.nombre_promocion, f.equipo_nombre AS equipo, f.equipo_modelo AS modelo
                     FROM facturas f
                     LEFT JOIN clientes c ON c.id_cliente = f.id_cliente
                     LEFT JOIN servicios s ON s.id_servicio = f.id_servicio
@@ -2611,11 +2718,11 @@ def facturacion():
                 (f"%{q}%",) * 5 + (estado, estado)
                 + (fechas["desde"] or None,) * 2 + (fechas["hasta"] or None,) * 2,
             )
-            facturas_db = cursor.fetchall()
+            facturas_db = paginacion["registros"]
     finally:
         conn.close()
     return render_template(
-        "facturacion.html", active="facturacion", facturas=facturas_db,
+        "facturacion.html", paginacion=paginacion, active="facturacion", facturas=facturas_db,
         q=q, estado=estado, estados=estados, fecha=fecha, orden=orden, **fechas,
     )
 

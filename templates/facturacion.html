@@ -3,13 +3,14 @@
 {% block title %}PC-Fix - Facturación{% endblock %}
 
 {% block content %}
+{% from "components/importes.html" import desglose %}
 
 <section id="facturacion" class="seccion-contenido admin-listado">
     <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-4">
         <h2 class="titulo-seccion mb-0">Módulo de Facturación</h2>
         <div>
             <a href="{{ url_for('pedidos_admin') }}" class="btn btn-success me-2">Administrar pedidos</a>
-            <span class="badge bg-primary fs-6 px-3 py-2">Total facturas: {{ facturas|length }}</span>
+            <span class="badge bg-primary fs-6 px-3 py-2">Total facturas: {{ paginacion.total }}</span>
         </div>
     </div>
     <p class="text-muted mb-4">Órdenes de servicio facturadas. Los montos son referenciales y se muestran a modo de ejemplo.</p>
@@ -40,7 +41,7 @@
                     <td>{{ factura.cliente }}</td>
                     <td>{{ factura.servicio }}{% if factura.servicio_descripcion %}<div class="small text-muted">{{ factura.servicio_descripcion }}</div>{% endif %}{% if factura.equipo %}<div class="small text-muted">Equipo: {{ factura.equipo }}</div>{% endif %}{% if factura.modelo %}<div class="small text-muted">Modelo: {{ factura.modelo }}</div>{% endif %}</td>
                     <td>{{ factura.fecha }}</td>
-                    <td>${{ "%.2f"|format(factura.total) }}</td>
+                    <td>${{ "%.2f"|format(factura.total) }}{% if factura.subtotal is not none %}<details class="mt-1"><summary class="small">Ver desglose</summary>{{ desglose(factura) }}</details>{% endif %}</td>
                     <td>
                         {% if factura.estado == "Pagada" %}
                         <span class="badge bg-success">{{ factura.estado }}</span>
@@ -55,6 +56,7 @@
             </tbody>
         </table>
     </div>
+    {% include "components/paginacion.html" %}
 </section>
 
 {% endblock %}

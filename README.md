@@ -172,11 +172,14 @@ Ver `AUDITORIA_PRE_RENDER.md` para el resultado de la revisión de este bloque.
 ## Duraciones y pagos
 
 Los servicios usan cantidad y unidad de duración; Variable no exige cantidad.
-El precio del servicio es base sin IVA. `IVA_RATE` define la tarifa de proyecto.
+El precio del servicio es base sin IVA. La tarifa vigente se administra desde
+**Panel de Administración → Parámetros comerciales**; `IVA_RATE` solo es respaldo
+cuando todavía no existe una configuración guardada.
 Los datos de transferencia se configuran con las cuatro variables `PAYMENT_*`
 indicadas en `.env.example`, sin publicar credenciales ni datos reales en Git.
 
-El administrador inicia la revisión y fija el total con IVA desde **Gestionar → Pagos**.
+Los pedidos nuevos fijan sus importes al crearse. El administrador inicia la
+revisión y solicita el pago desde **Gestionar → Pagos**, conservando esos importes.
 El cliente puede presentar comprobante por el anticipo del 50 % o el pago total del
 100 %. El administrador confirma o rechaza cada comprobante; un anticipo confirmado
 habilita la reparación y el saldo restante se paga al llegar a Listo. Un pago total
@@ -203,10 +206,60 @@ incluido en `sql/esquema.sql`, que se ejecuta durante la inicialización habitua
 La migración es repetible, conserva las filas y sustituye las reglas destructivas
 de las relaciones históricas por `RESTRICT`.
 
-Las facturas nuevas guardan nombre, descripción y precio al emitirse. Para las
+Las facturas nuevas copian nombre, descripción, precio e importes del pedido al
+emitirse. Los pedidos nuevos guardan estos datos al crearse. Para las
 antiguas, solo se completan snapshots ausentes: descripción disponible actualmente
 y precio procedente de la propia factura. No se pueden reconstruir descripciones
 anteriores que nunca se guardaron.
 
 Pruebas específicas (incluyen migración y rollback):
 `python -m unittest discover -s tests -p test_eliminacion_logica.py -v`.
+
+## Paginación y parámetros comerciales
+
+Los listados de Servicios (administrador y cliente), Pedidos, Facturación,
+Auditoría, Clientes, Proveedores, Mis pedidos y Mis facturas muestran 10 registros
+por página. PostgreSQL cuenta los resultados filtrados y aplica `LIMIT/OFFSET`.
+Los enlaces `page` conservan los filtros; una búsqueda nueva comienza en página 1.
+Las páginas inválidas se normalizan a la primera o a la última disponible.
+
+La ruta administrativa `/configuracion` permite guardar IVA, descuento y fechas
+opcionales con Flask-WTF/CSRF. `configuracion_comercial` contiene una única fila;
+los cambios registran administrador, fecha y valores anteriores/nuevos en auditoría.
+Sus porcentajes se almacenan de 0 a 100; los snapshots de pedidos y facturas usan
+fracciones de 0 a 1, igual que el campo histórico `porcentaje_iva`.
+
+El descuento aplica solo si está activo y la fecha de Ecuador continental
+(`America/Guayaquil`) cae dentro del período, incluyendo ambos extremos. Una fecha
+vacía no limita ese extremo. Cálculo con `Decimal` y redondeo `ROUND_HALF_UP` a centavos:
+
+```text
+valor_descuento = redondear(subtotal × porcentaje_descuento)
+subtotal_con_descuento = subtotal − valor_descuento
+valor_iva = redondear(subtotal_con_descuento × porcentaje_iva)
+total = subtotal_con_descuento + valor_iva
+```
+
+Por ejemplo: $100 − $10 + $13,50 = $103,50. Se conserva también el nombre de la
+promoción. Cambiar configuración o servicio no recalcula pedidos ni facturas
+anteriores. Si el cliente cambia explícitamente de servicio en una solicitud aún
+editable, se cotiza el nuevo precio con las tasas guardadas en esa solicitud.
+Los pedidos antiguos sin importes siguen permitiendo solicitar su primera
+cotización; no reciben promociones nuevas ni se recalculan importes ya existentes.
+
+Para actualizar una base existente (local o Render), después de las migraciones
+de pagos/IVA y eliminación lógica, ejecutar en una transacción:
+
+1. `sql/migracion_configuracion_comercial.sql`
+2. `sql/migracion_indices_paginacion.sql`
+
+Ambas son idempotentes y están incluidas en `sql/esquema.sql` para nuevas
+instalaciones. No actualizan filas históricas: los campos nuevos quedan `NULL`
+en documentos previos, sin inventar descuentos. No se requiere modificar `.env`.
+
+Pruebas específicas con PostgreSQL y rollback:
+
+```text
+python -m unittest discover -s tests -p test_paginacion.py -v
+python -m unittest discover -s tests -p test_configuracion_comercial.py -v
+```

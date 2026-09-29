@@ -4,8 +4,14 @@
 <p>Estado de pago: <span class="badge bg-secondary">{{ resumen.estado }}</span></p>
 {% if pedido.total is not none %}
 <dl class="row">
-    <dt class="col-6">Subtotal</dt>
+    <dt class="col-6">Subtotal/base</dt>
     <dd class="col-6">${{ '%.2f'|format(pedido.subtotal) }}</dd>
+    {% if pedido.valor_descuento %}
+    <dt class="col-6">Descuento ({{ '%g'|format(pedido.porcentaje_descuento * 100) }} %){% if pedido.nombre_promocion %} · {{ pedido.nombre_promocion }}{% endif %}</dt>
+    <dd class="col-6">−${{ '%.2f'|format(pedido.valor_descuento) }}</dd>
+    <dt class="col-6">Subtotal después del descuento</dt>
+    <dd class="col-6">${{ '%.2f'|format(pedido.subtotal_con_descuento) }}</dd>
+    {% endif %}
     <dt class="col-6">IVA ({{ '%g'|format(pedido.porcentaje_iva * 100) }} %)</dt>
     <dd class="col-6">${{ '%.2f'|format(pedido.valor_iva) }}</dd>
     <dt class="col-6">Total</dt>
@@ -21,7 +27,7 @@
     class="alert alert-warning">Saldo pendiente: 50 % (con ajuste de centavos). Confirma el saldo para completar la
     entrega.</div>{% endif %}
 {% else %}<p class="text-muted">Todavía no se ha solicitado un pago con importes registrados.</p>{% endif %}
-{% if current_user.rol == 'admin' and pedido.total is none and pedido.estado in ('En revisión','En reparación','Listo')
+{% if current_user.rol == 'admin' and (pedido.total is none or not pedido.anticipo_solicitado) and pedido.estado in ('En revisión','En reparación','Listo')
 %}
 <form method="POST" action="{{ url_for('registrar_anticipo', id=pedido.id_pedido) }}">
     {{ decision_form.hidden_tag() }}<input type="hidden" name="solicitado" value="y">
